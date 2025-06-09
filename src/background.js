@@ -8,10 +8,6 @@ import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
 const path = require ('path');
 const fs = require("fs")
 const isDevelopment = process.env.NODE_ENV !== 'production'
-import { getAbi } from 'node-abi'
-console.log("aaaa", getAbi)
-console.log(getAbi('v12.2.3', 'electron'))
-console.log(getAbi('v14.17.5', 'node'))
 let appTray, mainWindow;
 const ioHook = require('iohook');
 
@@ -61,7 +57,7 @@ function setTray () {
 async function createWindow() {
   // Create the browser window.
   const win = new BrowserWindow({
-    width: 800,
+    width: 400,
     height: 600,
     frame: false,
     transparent: false,
