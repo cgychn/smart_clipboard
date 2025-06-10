@@ -2,17 +2,88 @@
 
 
 
-import { app, protocol, BrowserWindow, Tray, Menu } from 'electron'
+import { app, protocol, BrowserWindow, Tray, Menu, ipcMain, clipboard } from 'electron'
+const clipboardEx = require('electron-clipboard-ex');
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS_DEVTOOLS } from 'electron-devtools-installer'
-const path = require ('path');
+const path = require('path');
 const fs = require("fs")
 const isDevelopment = process.env.NODE_ENV !== 'production'
 let appTray, mainWindow;
 const ioHook = require('iohook');
 
+let userPublicPath = "C:\\Users\\Public\\.smart_clipboard";
 let logoPath = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + "\\logo.png" : path.dirname(app.getPath("exe")) + "\\logo.png"
+let configPath = userPublicPath + "\\config.json"
+let configPathTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + "\\config.json.template" : path.dirname(app.getPath("exe")) + "\\config.json.template"
+let deviceHashFilePath = userPublicPath + "\\device.id"
+const isMac = process.platform === 'darwin';
 
+function loadConfig () {
+  let config
+  if (!fs.existsSync(configPath)) {
+    // 创建文件
+    createFile(configPath)
+    // 读取模板
+    config = JSON.parse(fs.readFileSync(configPathTemplate))
+    // 写回文件
+    fs.writeFileSync(configPath, JSON.stringify(config));
+  } else {
+    // read from file
+    config = JSON.parse(fs.readFileSync(configPath))
+    let template = JSON.parse(fs.readFileSync(configPathTemplate))
+    // 从template中获取新配置项
+    let configKeys = Object.keys(config);
+    let templateKeys = Object.keys(template);
+    console.log(configKeys, templateKeys)
+    for (let key of templateKeys) {
+      if (configKeys.indexOf(key) === -1) {
+        config[key] = template[key];
+      }
+    }
+  }
+  console.log(config)
+  return config
+}
+
+/**
+ * 加载设备唯一值
+ * @returns {Buffer}
+ */
+function loadDeviceId () {
+  let deviceId
+  if (!fs.existsSync(deviceHashFilePath)) {
+    // 创建device.id
+    deviceId = new Date().getTime()
+    // 创建并写入文件
+    createFile(deviceHashFilePath)
+    console.log(deviceId)
+    fs.writeFileSync(deviceHashFilePath, deviceId + '');
+  } else {
+    // read from file
+    deviceId = fs.readFileSync(deviceHashFilePath)
+  }
+  return deviceId + ""
+}
+
+function createFile (filePath) {
+  let pPath = path.dirname(filePath)
+  if (!fs.existsSync(pPath)) {
+    fs.mkdirSync(pPath)
+  }
+  // 创建文件
+  fs.writeFileSync(filePath, "")
+}
+
+let config = loadConfig()
+let deviceId = loadDeviceId()
+
+console.log(config, deviceId)
+
+global.sharedObject = {
+  config,
+  deviceId
+}
 
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([
@@ -59,11 +130,16 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 400,
     height: 600,
+    minHeight: 400,
+    minWidth: 300,
     frame: false,
     transparent: false,
     webPreferences: {
+      nodeIntegrationInWorker: true,
+      webSecurity: false,
       nodeIntegration: true, // 在网页中集成Node
       enableRemoteModule: true, // 打开remote模块
+      contextIsolation: false // 是否在独立 JavaScript 环境中运行 Electron API和指定的preload 脚本
     }
   })
   mainWindow = win
@@ -97,6 +173,23 @@ app.on('activate', () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+function checkHotKey (key) {
+  if (key.rawcode === 67 && key.ctrlKey) {
+    // 复制快捷键触发
+    console.log("复制快捷键触发")
+    // 读取剪切板内容
+    setTimeout(() => {
+      let text = clipboard.readText()
+      // console.log(getClipboardFiles())
+      let filePaths = clipboardEx.readFilePaths()
+      // 发送到页面处理
+      if (mainWindow) {
+        mainWindow.webContents.send('append-clipboard', {filePaths, text})
+      }
+    }, 100)
+  }
+}
+
 app.on('ready', async () => {
   if (isDevelopment && !process.env.IS_TEST) {
     // Install Vue Devtools
@@ -108,6 +201,7 @@ app.on('ready', async () => {
     // 监听键盘按下事件
     ioHook.on('keydown', event => {
       console.log('Key pressed:', event);
+      checkHotKey(event)
     });
 
     ioHook.start();
@@ -129,3 +223,18 @@ if (isDevelopment) {
     })
   }
 }
+
+
+
+
+// 事件交互
+// 关闭按钮
+ipcMain.on("close", () => {
+
+})
+
+// 设置hostname
+ipcMain.on("set-host-name", (event, hostName) => {
+  config.hostName = hostName
+  fs.writeFileSync(configPath, JSON.stringify(config));
+})

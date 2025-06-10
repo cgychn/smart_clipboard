@@ -4,8 +4,15 @@ module.exports = defineConfig({
   lintOnSave: false,
   pluginOptions: {
     electronBuilder: {
-      nodeModulesPath: ['./node_modules'],
+      nodeIntegration: true,
       externals: ['iohook']
+    }
+  },
+  configureWebpack: {
+    resolve: {
+      fallback: {
+        path: require.resolve("path-browserify")
+      }
     }
   }
 })
