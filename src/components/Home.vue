@@ -26,7 +26,10 @@
                     <div class="cb-list-item" :key="device.id" v-for="device in availableCBList">
                         <div class="top">
                             <!-- <div :style="device.online ? 'background-color: green;' : 'background-color: red;'" class="status-point"></div> -->
-                            <Icon :type="'net'" :color="device.online ? 'green' : 'grey'" style="width: 20px; height: 20px;"></Icon>
+                            <template v-if="device.id === deviceId">
+                                <el-tag type="success" size="mini" effect="dark">本机</el-tag>
+                            </template>
+                            <Icon v-else :type="'net'" :color="device.online ? 'green' : 'grey'" style="width: 20px; height: 20px;"></Icon>
                         </div>
                         <div class="center">
                             <div style="width: 100%; height: 60%; line-height: 2.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px;">
@@ -37,7 +40,7 @@
                             </div>
                         </div>
                         <div class="end">
-                            <el-checkbox v-model="device.default"></el-checkbox>
+                            <el-checkbox v-model="device.default" @change="(val) => { defaultChanged(device, val) }"></el-checkbox>
                         </div>
                     </div>
                 </div>
@@ -47,12 +50,37 @@
 </template>
 
 <script>
-import { remote, ipcRenderer, clipboard } from "electron";
+const {setTimeout, setInterval, clearInterval} = require('timers');
+import { remote, ipcRenderer, clipboard, ipcMain } from "electron";
 import Icon from "./common/Icon.vue";
+const fs = require("fs")
 const config = remote.getGlobal('sharedObject').config
 const deviceId = remote.getGlobal('sharedObject').deviceId
+const dgram = require('dgram');
+const socket = dgram.createSocket('udp4');
 const os = require("os")
+const BROADCAST_ADDR = '255.255.255.255'; // 广播地址
+const PORT = 18268; // 自定义端口
 console.log(deviceId)
+
+async function dbRunPrepare (sqlStr, ...params) {
+  try {
+    let {res} = await ipcRenderer.invoke("sqlite-run-prepare", {sqlId: 0, sqlStr, params})
+    return res;
+  } catch (error) {
+    return error
+  }
+}
+
+async function dbAll (sqlStr) {
+  try {
+    let {res} = await ipcRenderer.invoke("sqlite-all", {sqlId: 0, sqlStr})
+    return res;
+  } catch (error) {
+    return error
+  }
+}
+
 export default {
   name: 'Home',
   components: {
@@ -64,46 +92,136 @@ export default {
     return {
         deviceId: deviceId,
         localName: "",
-        availableCBList: [
-            {name : "123321123", id: "2345678", default: false, online: false},
-            {name : "223321123", id: "3345678", default: false, online: true},
-            {name : "323321123", id: "4345678", default: true, online: true},
-            {name : "423321123", id: "5345678", default: false, online: true},
-        ],
-        clipboardList: []
+        availableCBList: [],
     }
   },
   methods: {
+    async defaultChanged (device, value) {
+        console.log(device, value)
+        // update cb_server all record's default 0 and update $device.id default 1
+        try {
+            if (value) {
+                await dbRunPrepare(`update cb_server set \`default\` = CASE id WHEN '${device.id}' THEN '1' ELSE '0' END`)
+            } else {
+                await dbRunPrepare(`update cb_server set \`default\` = 0`)
+            }
+        } catch (e) {
+            console.error(e)
+            this.$message('设置默认设备失败，请重试！')
+            device.default = !value
+        }
+    },
+    getLocalIPList() {
+        const interfaces = os.networkInterfaces();
+        const ips = [];
+        for (const name in interfaces) {
+            for (const iface of interfaces[name]) {
+                // 跳过 IPv6 和 内部地址（127.0.0.1）
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    ips.push({
+                        address: iface.address,
+                    });
+                }
+            }
+        }
+        return ips;
+    },
+    async loadCBListFromDB () {
+        let res = await dbAll("select * from cb_server")
+        console.log(res)
+        for (let cb of res) {
+            cb.default = (cb.default === 1)
+        }
+        this.availableCBList = res
+    },
+    syncDBListToMainProgress() {
+        let that = this;
+        let currentTime = new Date().getTime();
+        setInterval(() => {
+            for (let cb of that.availableCBList) {
+                if (cb.lastHeartbeatTime) {
+                    let duringTime = currentTime - cb.lastHeartbeatTime
+                    if (duringTime > 10000) {
+                        // 10s 内没有收到心跳，服务下线
+                        cb.online = false
+                    }
+                }
+            }
+            // 同步到主进程
+            ipcRenderer.send('sync-cblist', that.availableCBList)
+        }, 1000)
+    },
+    broadcast () {
+        clearInterval()
+        let ips = this.getLocalIPList();
+        console.log(ips)
+        socket.bind(PORT, () => {
+            socket.setBroadcast(true); // 开启广播权限
+            setInterval(() => {
+                const message = Buffer.from(JSON.stringify({
+                    name: this.localName,
+                    httpServers: [...ips],
+                    id: deviceId
+                }));
+                socket.send(message, 0, message.length, PORT, BROADCAST_ADDR, (err) => {
+                    if (err) console.error(err);
+                    else console.log('广播消息已发送');
+                });
+            }, 2000);
+        });
+    },
+    listenBroadcast () {
+        let that = this;
+        socket.on('message', async (msg, rinfo) => {
+            console.log(`收到消息: ${msg} 来自 ${rinfo.address}:${rinfo.port}`);
+            let msgJSON = JSON.parse(msg)
+            let added = false;
+            for (let cb of that.availableCBList) {
+                if (cb.id === msgJSON.id) {
+                    cb.online = true
+                    cb.ipAddress = rinfo.address
+                    cb.lastHeartbeatTime = new Date().getTime()
+                    added = true
+                }
+            }
+            if (!added) {
+                that.availableCBList.push(
+                    { ...msgJSON, ipAddress: rinfo.address }
+                )
+                that.$forceUpdate()
+                // update to sqlite
+                let sql = "insert or ignore into cb_server('id', 'name', 'default') values (?, ?, ?)"
+                try {
+                    await dbRunPrepare(sql, msgJSON.id, msgJSON.name, '0')
+                } catch (e) {
+                    console.log(e)
+                }
+            }
+            console.log(that.availableCBList)
+        });
+    },
     close () {
-
+        ipcRenderer.send("hide-main-win")
     },
     saveHostname (notice) {
         ipcRenderer.send("set-host-name", this.localName)
         if (notice) {
             this.$message.success("修改成功！")
         }
-    }
+    },
   },
   mounted () {
-    let that = this
     let hostname = config.localName
     if (!hostname) {
         this.localName = os.hostname()
         // 保存到config
         this.saveHostname()
     }
-    ipcRenderer.on("append-clipboard", function (event, {filePaths, text}) {
-        // 最多保持5个历史
-        console.log({filePaths, text})
-        if (that.clipboardList.length >= 5) {
-            that.clipboardList.unshift()
-        }
-        if (filePaths) {
-            that.clipboardList.push({content: filePaths, type: "filePaths"})
-        } else if (text) {
-            that.clipboardList.push({content: text, type: "text"})
-        }
-    })
+    // 开始广播
+    this.loadCBListFromDB()
+    this.broadcast()
+    this.listenBroadcast()
+    this.syncDBListToMainProgress()
   }
 }
 </script>

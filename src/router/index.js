@@ -2,6 +2,8 @@ import Vue from "vue";
 import VueRouter from "vue-router";
 
 import Home from "@/components/Home.vue";
+import PasteAssistant from "@/components/PasteAssistant.vue";
+import HttpServer from "@/components/HttpServer.vue";
 
 Vue.use(VueRouter)
 
@@ -11,6 +13,16 @@ const router = new VueRouter({
             path: '/',
             name: 'home',
             component: Home
+        },
+        {
+            path: '/pasteAssistant',
+            name: 'pasteAssistant',
+            component: PasteAssistant
+        },
+        {
+            path: "/httpServer",
+            name: "httpServer",
+            component: HttpServer
         }
     ]
 })
