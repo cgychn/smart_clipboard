@@ -30,7 +30,7 @@
               </div>
             </div>
             <div class="cb-item-right">
-              <div class="cb-item-content" :style="item.expandOp ? 'width: 0px;' : ''">
+              <div class="cb-item-content" :style="checkExpand(item) ? 'width: 0px;' : ''">
                 <span v-if="item.type === 'filePaths'">
                   <template v-if="item.content.length > 0">
                     {{ item.content[0].filePath }}
@@ -40,18 +40,33 @@
                   {{ item.content }}
                 </span>
               </div>
-              <div class="cb-item-content-op" :style="item.expandOp ? 'width: 100%;' : ''">
+              <div class="cb-item-content-op" :style="checkExpand(item) ? 'width: 100%;' : ''">
                 <el-button size="mini" type="text" @click="showDetail(item)">查看详情</el-button>
                 <el-button v-if="item.type === 'file'" size="mini" type="text" @click="transferToLocal(item)">拷至本机</el-button>
                 <el-button v-else size="mini" type="text" @click="copyToClipboard(item)">复制到剪贴板</el-button>
               </div>
             </div>
             <div class="cb-item-operation" @click="expandOp(item)">
-              <i :class="item.expandOp ? 'el-icon-caret-right' : 'el-icon-caret-left'"></i>
+              <i :class="checkExpand(item) ? 'el-icon-caret-right' : 'el-icon-caret-left'"></i>
             </div>
           </div>
         </div>
       </div>
+      <el-dialog :visible.sync="detailDialogVisible" width="90%">
+        <div slot="title">
+          <span style="color: white;">详情</span>
+        </div>
+        <div class="detail_body" v-if="detail.textDetail" style="width: 100%; max-height: 200px; overflow: auto; color: white;">
+          {{ detail.textDetail }}
+        </div>
+        <div class="detail_body" v-else style="width: 100%; max-height: 200px; overflow: auto; color: white;">
+          <div v-for="file in detail.fileDetail" style="padding-left: 5px; padding-right: 5px;">
+            <div style="width: 100%; height: 30px;" class="marquee" @mouseenter="showMarquee($event, $event.currentTarget)" @mouseleave="removeMarquee($event, $event.currentTarget)">
+              <span>{{ file.filePath }}</span>
+            </div>
+          </div>
+        </div>
+      </el-dialog>
     </div>
 </template>
 
@@ -89,23 +104,61 @@ export default {
         //   content: "这是一段文字" // the content of clipboard
         // }
       ],
-      activeName: null
+      expandItems: new Set(),
+      activeName: null,
+      detailDialogVisible: false,
+      detail: {
+        textDetail: "",
+        fileDetail: null,
+      }
     }
   },
   methods: {
+    showMarquee (event, el) {
+      console.log(el)
+      let span = el.querySelector("span");
+      console.log(span)
+      const containerWidth = el.offsetWidth;
+      const textWidth = span.scrollWidth;
+      console.log(containerWidth, textWidth)
+      if (textWidth > containerWidth) {
+        // 计算需要移动的距离：容器宽度 - 文本宽度
+        const move = containerWidth - textWidth;
+        span.style.setProperty("--move", move + "px");
+        // span.style.setProperty("--color", "red");
+        span.style.animation = 'none';
+        span.offsetHeight; // 强制重绘
+        span.style.animation = '';
+      }
+    },
+    removeMarquee (event, el) {
+      console.log(el)
+      let span = el.querySelector("span");
+      console.log(span)
+      span.style.removeProperty("--move");
+      span.style.setProperty("--color", "white");
+      span.style.animation = 'none';
+      span.offsetHeight; // 强制重绘
+      span.style.animation = '';
+    },
+    checkExpand (item) {
+      // console.log(item, this.expandItems)
+      return this.expandItems.has(item.id)
+    },
     async changeCB () {
       console.log(this.activeName)
+      this.expandItems = new Set()
       this.fetchCurrentActivateCbList()
     },
     async fetchCurrentActivateCbList () {
       for (let server of this.serverList) {
         if (server.id === this.activeName) {
           let ip = server.ipAddress;
-          console.log(ip)
+          // console.log(ip)
           if (ip) {
             try {
               let { data } = await this.ajax.post('http://' + ip + ":13238/cbList")
-              console.log(data)
+              // console.log(data)
               this.clipboardList = data.data
             } catch (e) {
               console.error(e)
@@ -116,19 +169,24 @@ export default {
       }
     },
     expandOp (item) {
-      console.log(item)
-      if (item.expandOp) {
-        item.expandOp = false
+      // console.log(item)
+      if (this.expandItems.has(item.id)) {
+        this.expandItems.delete(item.id)
       } else {
-        item.expandOp = true
+        this.expandItems.add(item.id)
       }
       this.$forceUpdate()
     },
-    getCBListOfServer(server) {
-      // todo. fetch clipboard content list from given server 
-    },
     showDetail (item) {
       console.log(item)
+      this.detailDialogVisible = true
+      if (item.type == "text") {
+        this.detail.fileDetail = null
+        this.detail.textDetail = item.content
+      } else {
+        this.detail.fileDetail = item.content
+        this.detail.textDetail = null
+      }
     },
     transferToLocal (item) {
       console.log(item)
@@ -140,9 +198,9 @@ export default {
   mounted () {
     let that = this;
     ipcRenderer.on("set-cblist", function (event, data) {
-      console.log(data)
+      // console.log(data)
       that.serverList = data
-      console.log(that.serverList, that.activeName)
+      // console.log(that.serverList, that.activeName)
       for (let cb of that.serverList) {
         if (cb.default && (!that.activeName || that.activeName == "0")) {
           that.activeName = cb.id
@@ -164,6 +222,41 @@ export default {
     height: 100%;
     transition: .5s ease all;
     background-color: rgb(47, 47, 47);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    .el-dialog {
+      display: flex;
+      flex-direction: column;
+      margin: 0 !important;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgb(117, 117, 117);
+      max-height: 80%;
+      overflow: auto;
+    }
+    .el-dialog .el-dialog__body {
+      flex: 1;
+      overflow: auto;
+      padding-top: 10px;
+      .detail_body {
+        &::-webkit-scrollbar {
+          width: 4px;
+        }
+        /*定义滑块 内阴影+圆角*/
+        &::-webkit-scrollbar-thumb {
+          width: 4px;
+          border-radius: 4px;
+          background-color: #de7d7d;
+        }
+      }
+      
+    }
+    .el-dialog__close {
+      color: white;
+    }
     .el-tabs__item {
       color: rgb(152, 152, 152);
     }
@@ -253,6 +346,28 @@ export default {
         }
       }
     }
+
+
+    .marquee {
+      animation-duration: 3s;
+      overflow: hidden;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .marquee > span {
+      display: inline-block;
+      animation: marquee 3s linear infinite alternate;
+      --move: 0px;
+      color: var(--color, "white");
+    }
+
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(var(--move, 0px)); } /* 移动一个自身宽度 */
+    }
+
+
 }
 
 </style>

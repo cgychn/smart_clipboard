@@ -230,7 +230,7 @@ async function createPasteAssistantWindow () {
 
 async function createHttpServerWindow () {
   const win = new BrowserWindow({
-    show: true,
+    show: false,
     transparent: false,
     fullscreenable: false,
     skipTaskbar: true,
@@ -277,15 +277,42 @@ app.on('activate', () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-function checkHotKey (key) {
+function readFromClipBoard () {
+  let times = 1000
+  function read (resolve) {
+    let paths = clipboardEx.readFilePaths()
+    // console.log(paths)
+    if (paths.length <= 0 && times >= 0) {
+      times --
+      // console.log(times)
+      setTimeout(() => {
+        read(resolve)
+      }, 1)
+    } else {
+      resolve(paths)
+    }
+  }
+  return new Promise((resolve, reject) => {
+    read(resolve)
+  })
+} 
+
+async function checkHotKey (key) {
   if (key.rawcode === 67 && key.ctrlKey) {
     // 复制快捷键触发
     console.log("复制快捷键触发")
     // 读取剪切板内容
-    setTimeout(() => {
+    setTimeout(async () => {
+      console.log("Formats:", clipboard.availableFormats());
       let text = clipboard.readText()
+      console.log("text", text)
+      let filePaths = []
+      if (!text) {
+        filePaths = await readFromClipBoard()
+        // filePaths = clipboardEx.readFilePaths()
+      }
       // console.log(getClipboardFiles())
-      let filePaths = clipboardEx.readFilePaths()
+      console.log(filePaths)
       // 发送到页面处理
       if (httpServerWindow) {
         httpServerWindow.webContents.send('append-clipboard', {filePaths, text})
