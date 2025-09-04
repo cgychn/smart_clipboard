@@ -4,6 +4,7 @@ import VueRouter from "vue-router";
 import Home from "@/components/Home.vue";
 import PasteAssistant from "@/components/PasteAssistant.vue";
 import HttpServer from "@/components/HttpServer.vue";
+import Downloader from "@/components/Downloader.vue";
 
 Vue.use(VueRouter)
 
@@ -23,6 +24,11 @@ const router = new VueRouter({
             path: "/httpServer",
             name: "httpServer",
             component: HttpServer
+        },
+        {
+            path: "/downloader",
+            name: "downloader",
+            component: Downloader
         }
     ]
 })

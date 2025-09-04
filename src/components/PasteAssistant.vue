@@ -42,7 +42,7 @@
               </div>
               <div class="cb-item-content-op" :style="checkExpand(item) ? 'width: 100%;' : ''">
                 <el-button size="mini" type="text" @click="showDetail(item)">查看详情</el-button>
-                <el-button v-if="item.type === 'file'" size="mini" type="text" @click="transferToLocal(item)">拷至本机</el-button>
+                <el-button v-if="item.type === 'filePaths'" size="mini" type="text" @click="transferToLocal(item)">拷至本机</el-button>
                 <el-button v-else size="mini" type="text" @click="copyToClipboard(item)">复制到剪贴板</el-button>
               </div>
             </div>
@@ -71,7 +71,7 @@
 </template>
 
 <script>
-import { remote, ipcRenderer } from 'electron'
+import { remote, ipcRenderer, clipboard } from 'electron'
 import Icon from "./common/Icon.vue"
 const config = remote.getGlobal('sharedObject').config
 const deviceId = remote.getGlobal('sharedObject').deviceId
@@ -190,9 +190,30 @@ export default {
     },
     transferToLocal (item) {
       console.log(item)
+      const result = remote.dialog.showOpenDialogSync({
+        title: "请选择传输至哪个目录",
+        properties: ['openDirectory', "promptToCreate"],
+      });
+      console.log(result)
+      if (!result) {
+        return
+      }
+      let ip;
+      for (let server of this.serverList) {
+        if (server.id === this.activeName) {
+          ip = server.ipAddress;
+          break;
+        }
+      }
+      ipcRenderer.send("start-download", {
+        fileList: item.content,
+        toDir: result[0],
+        serverPath: `http://${ip}:13238`
+      })
     },
     copyToClipboard (item) {
       console.log(item)
+      clipboard.writeText(item.content)
     }
   },
   mounted () {

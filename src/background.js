@@ -193,7 +193,7 @@ async function createPasteAssistantWindow () {
     transparent: false,
     skipTaskbar: true,
     resizable: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     webPreferences: {
       nodeIntegrationInWorker: true,
       webSecurity: false,
@@ -254,6 +254,43 @@ async function createHttpServerWindow () {
     // Load the index.html when not in development
     win.loadURL('app://./index.html/#/httpServer')
   }
+}
+
+let downloader = {}
+
+function createDonloadWorker (data) {
+  let id = new Date().getTime()
+  const win = new BrowserWindow({
+    show: true,
+    transparent: false,
+    fullscreenable: false,
+    
+    skipTaskbar: true,
+    maximizable: false,
+    resizable: false,
+    webPreferences: {
+      nodeIntegrationInWorker: true,
+      webSecurity: false,
+      nodeIntegration: true, // 在网页中集成Node
+      enableRemoteModule: true, // 打开remote模块
+      contextIsolation: false // 是否在独立 JavaScript 环境中运行 Electron API和指定的preload 脚本
+    }
+  })
+  downloader[id] = win
+  if (process.env.WEBPACK_DEV_SERVER_URL) {
+    // Load the url of the dev server if in development mode
+    win.loadURL(process.env.WEBPACK_DEV_SERVER_URL + "#/downloader")
+    // if (!process.env.IS_TEST) win.webContents.openDevTools()
+  } else {
+    createProtocol('app')
+    // Load the index.html when not in development
+    win.loadURL('app://./index.html/#/downloader')
+  }
+  win.once('ready-to-show', () => {
+    setTimeout(() => {
+      win.webContents.send("start-download", {id, ...data})
+    }, 5000)
+  })
 }
 
 // Quit when all windows are closed.
@@ -409,6 +446,30 @@ ipcMain.on("sync-cblist", (event, data) => {
   // console.log(data)
   if (pasteAssistantWindow) {
     pasteAssistantWindow.webContents.send("set-cblist", data)
+  }
+})
+
+// ====================== 下载 ==================================
+ipcMain.on("start-download", (event, data) => {
+  console.log(data)
+  createDonloadWorker(data)
+})
+
+ipcMain.on("download-complete", (event, data) => {
+  console.log(data)
+  // do sth
+  if (downloader[data.id]) {
+    downloader[data.id].close()
+    delete downloader[data.id]
+  }
+})
+
+ipcMain.on("download-error", (event, data) => {
+  console.log(data)
+  // do sth
+  if (downloader[data.id]) {
+    downloader[data.id].close()
+    delete downloader[data.id]
   }
 })
 

@@ -3,6 +3,7 @@
 <script>
 const http = require('http')
 const fs = require("fs")
+const path = require("path")
 import { ipcRenderer } from "electron";
 export default {
   name: 'HttpServer',
@@ -21,11 +22,70 @@ export default {
       http.createServer(function (req, res) {
           console.log(req)
           if (req.url === "/copyFile") {
-            
+            let body = "";
+            req.on('data', (chunk) => {
+              body += chunk.toString();
+            });
+            req.on('end', () => {
+              try {
+                console.log(body)
+                const jsonData = JSON.parse(body);
+                // 在这里处理接收到的 JSON 数据
+                console.log('Received JSON data:', jsonData);
+                let filePath = jsonData.filePath
+                let stat = fs.statSync(filePath)
+                let fileName = path.basename(filePath)
+                // write file to response
+                res.writeHead(200, {
+                  'Content-Type': 'application/octet-stream',              // 二进制流
+                  'Content-Disposition': 'attachment; filename=' + fileName, // 下载时的文件名
+                  'Content-Length': stat.size
+                });
+                const readStream = fs.createReadStream(filePath);
+                readStream.pipe(res);
+              } catch (error) {
+                console.error('Error parsing JSON:', error);
+                res.writeHead(400, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
+                res.end(JSON.stringify({ "result": "fail" }));
+              }
+            });
           } else if (req.url === "/cbList") {
-            console.log(that.clipboardList)
+            // console.log(that.clipboardList)
             res.writeHead(200, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
             res.end(JSON.stringify({ "result": "success", "data": [ ...that.clipboardList ].reverse(), "message": "" }));
+          } else if (req.url === "/listfiles") {
+            let body = "";
+            req.on('data', (chunk) => {
+              body += chunk.toString();
+            });
+            req.on('end', () => {
+              try {
+                console.log(body)
+                const jsonData = JSON.parse(body);
+                // 在这里处理接收到的 JSON 数据
+                console.log('Received JSON data:', jsonData);
+                let filePath = jsonData.filePath
+                // list files in filePath
+                let fileNames = fs.readdirSync(filePath)
+                let result = []
+                for (let fileName of fileNames) {
+                  let fileFullPath = filePath + "\\" + fileName
+                  let fileInfo = fs.statSync(fileFullPath);
+                  result.push({
+                    filePath: fileFullPath,
+                    isFile: fileInfo.isFile(),
+                    fileSize: fs.size
+                  })
+                }
+                // 返回响应
+                res.writeHead(200, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
+                res.end(JSON.stringify({ "result": "success", data: result }));
+              } catch (error) {
+                console.error('Error parsing JSON:', error);
+                res.writeHead(400, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
+                res.end(JSON.stringify({ "result": "fail" }));
+              }
+            });
           }
       }).listen(13238)
     }
