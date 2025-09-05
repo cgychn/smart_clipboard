@@ -71,11 +71,18 @@
 </template>
 
 <script>
-import { remote, ipcRenderer, clipboard } from 'electron'
+import { ipcRenderer, clipboard } from 'electron'
 import Icon from "./common/Icon.vue"
-const config = remote.getGlobal('sharedObject').config
-const deviceId = remote.getGlobal('sharedObject').deviceId
-console.log(deviceId)
+
+async function openDialog (title) {
+  try {
+    let res = await ipcRenderer.invoke("open-dialog", {dialogTitle: title})
+    return res;
+  } catch (error) {
+    return error
+  }
+}
+
 export default {
   name: 'PasteAssistant',
   components: {
@@ -188,12 +195,9 @@ export default {
         this.detail.textDetail = null
       }
     },
-    transferToLocal (item) {
+    async transferToLocal (item) {
       console.log(item)
-      const result = remote.dialog.showOpenDialogSync({
-        title: "请选择传输至哪个目录",
-        properties: ['openDirectory', "promptToCreate"],
-      });
+      const result = await openDialog("请选择传输到哪个目录")
       console.log(result)
       if (!result) {
         return
@@ -206,6 +210,7 @@ export default {
         }
       }
       ipcRenderer.send("start-download", {
+        id: item.id,
         fileList: item.content,
         toDir: result[0],
         serverPath: `http://${ip}:13238`
@@ -230,6 +235,11 @@ export default {
         that.fetchCurrentActivateCbList()
       }
       that.$forceUpdate()
+    })
+    ipcRenderer.on("focus", function (event, data) {
+      let dom = document.getElementById("paste-assistant")
+      dom.focus()
+      console.log("dom focused")
     })
 
   }

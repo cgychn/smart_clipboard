@@ -5,6 +5,8 @@ import Home from "@/components/Home.vue";
 import PasteAssistant from "@/components/PasteAssistant.vue";
 import HttpServer from "@/components/HttpServer.vue";
 import Downloader from "@/components/Downloader.vue";
+import ToolBar from "@/components/ToolBar.vue";
+import DownloadProgress from "@/components/DownloadProgress.vue";
 
 Vue.use(VueRouter)
 
@@ -29,6 +31,16 @@ const router = new VueRouter({
             path: "/downloader",
             name: "downloader",
             component: Downloader
+        },
+        {
+            path: "/toolBar",
+            name: "toolBar",
+            component: ToolBar
+        },
+        {
+            path: "/downloadProgress",
+            name: "downloadProgress",
+            component: DownloadProgress
         }
     ]
 })

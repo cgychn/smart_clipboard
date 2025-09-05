@@ -22,7 +22,7 @@
             </div>
             <div class="service-list">
                 可用剪切板
-                <div class="service-list-container">
+                <div class="service-list-container" v-if="availableCBList.length > 0">
                     <div class="cb-list-item" :key="device.id" v-for="device in availableCBList">
                         <div class="top">
                             <!-- <div :style="device.online ? 'background-color: green;' : 'background-color: red;'" class="status-point"></div> -->
@@ -44,6 +44,9 @@
                         </div>
                     </div>
                 </div>
+                <div v-else style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
+                    <span>暂无可用剪切板</span>
+                </div>
             </div>
         </div>
     </div>
@@ -51,17 +54,14 @@
 
 <script>
 const {setTimeout, setInterval, clearInterval} = require('timers');
-import { remote, ipcRenderer, clipboard, ipcMain } from "electron";
+import { ipcRenderer, clipboard, ipcMain } from "electron";
 import Icon from "./common/Icon.vue";
 const fs = require("fs")
-const config = remote.getGlobal('sharedObject').config
-const deviceId = remote.getGlobal('sharedObject').deviceId
 const dgram = require('dgram');
 const socket = dgram.createSocket('udp4');
 const os = require("os")
 const BROADCAST_ADDR = '255.255.255.255'; // 广播地址
 const PORT = 18268; // 自定义端口
-console.log(deviceId)
 
 async function dbRunPrepare (sqlStr, ...params) {
   try {
@@ -81,6 +81,18 @@ async function dbAll (sqlStr) {
   }
 }
 
+async function getConfig () {
+    const data = await ipcRenderer.invoke('get-config')
+    console.log(data)
+    return data
+}
+
+async function getDeviceId () {
+    const data = await ipcRenderer.invoke('get-deviceid')
+    console.log(data)
+    return data
+}
+
 export default {
   name: 'Home',
   components: {
@@ -90,7 +102,7 @@ export default {
   },
   data () {
     return {
-        deviceId: deviceId,
+        deviceId: "",
         localName: "",
         availableCBList: [],
     }
@@ -161,7 +173,7 @@ export default {
                 const message = Buffer.from(JSON.stringify({
                     name: this.localName,
                     httpServers: [...ips],
-                    id: deviceId
+                    id: this.deviceId
                 }));
                 socket.send(message, 0, message.length, PORT, BROADCAST_ADDR, (err) => {
                     if (err) console.error(err);
@@ -210,8 +222,9 @@ export default {
         }
     },
   },
-  mounted () {
-    let hostname = config.localName
+  async mounted () {
+    let hostname = await getConfig().localName
+    this.deviceId = await getDeviceId()
     if (!hostname) {
         this.localName = os.hostname()
         // 保存到config

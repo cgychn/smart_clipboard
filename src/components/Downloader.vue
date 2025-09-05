@@ -14,11 +14,12 @@ export default {
   },
   data () {
     return {
-      
+      taskId: null,
+      fileList: []
     }
   },
   methods: {
-    async dealDownload (filePath, destFilePath, serverPath) {
+    dealDownload (filePath, destFilePath, serverPath) {
         // 创建空文件
         let dirname = path.dirname(destFilePath)
         if (!fs.existsSync(dirname)) {
@@ -26,7 +27,7 @@ export default {
         }
         fs.writeFileSync(destFilePath, "")
         let that = this
-        new Promise(async (resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             try {
                 let response = await fetch(`${serverPath}/copyFile`, {
                     method: "POST",
@@ -51,12 +52,21 @@ export default {
                         if (total) {
                             const percent = ((downloaded / total) * 100).toFixed(2);
                             console.log(`\r下载进度: ${percent}% (${downloaded}/${total} bytes)`);
+                            // broadcast download progress
+                            // {currentDownloadFile: "D:\\aqwdw\\wdww.txt", currentFileDownloadProgress: 60, id: 123456, totalFileCount: 2},
+                            ipcRenderer.send("broadcast-download-progress", {
+                                id: that.taskId, 
+                                currentDownloadFile: filePath, 
+                                currentFileDownloadProgress: parseInt(percent), 
+                                totalFileCount: that.fileList.length
+                            })
                         } else {
                             console.log(`\r已下载: ${downloaded} bytes`);
                         }
                     }
 
                     fileStream.end();
+                    console.log("resolved")
                     resolve()
                 }
             } catch (e) {
@@ -69,6 +79,8 @@ export default {
   mounted () {
     let that = this
     ipcRenderer.on("start-download", async function (event, {id, fileList, toDir, serverPath}) {
+        that.taskId = id
+        that.fileList = fileList
         console.log(fileList, toDir, serverPath)
         let toDealFiles = []
         for (let file of fileList) {
@@ -91,9 +103,16 @@ export default {
                     // console.log("file:", file.filePath)
                     // download file
                     await that.dealDownload(file.filePath, toFilePath, serverPath)
+                    console.log("file downloaded")
                 } else {
                     // create dir first
                     fs.mkdirSync(toFilePath, { recursive: true })
+                    ipcRenderer.send("broadcast-download-progress", {
+                        id: that.taskId, 
+                        currentDownloadFile: file.filePath, 
+                        currentFileDownloadProgress: 100, 
+                        totalFileCount: that.fileList.length
+                    })
                     // fetch listfile
                     let { data } = await that.ajax.post(serverPath + "/listfiles", {filePath: file.filePath})
                     // console.log(data)
@@ -116,6 +135,7 @@ export default {
                 break;
             }
         }
+        console.log("compeletd")
         ipcRenderer.send("download-complete", {id})
     })
   }
