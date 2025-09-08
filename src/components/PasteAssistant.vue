@@ -14,7 +14,10 @@
           </el-tabs>
         </div>
         
-        <div style="width: 100%; height: calc(100% - 50px); overflow: auto;">
+        <div class="cblist-empty-placeholder" v-if="clipboardList.length >= 0">
+          该剪切板暂无数据
+        </div>
+        <div v-else style="width: 100%; height: calc(100% - 50px); overflow: auto;">
           <div v-for="item in clipboardList" class="cb-item">
             <div class="cb-item-left">
               <div class="cb-item-icon" style="position: relative;">
@@ -267,6 +270,14 @@ export default {
       background-color: rgb(117, 117, 117);
       max-height: 80%;
       overflow: auto;
+    }
+    .cblist-empty-placeholder {
+      width: 100%;
+      height: calc(100% - 50px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: rgb(207, 207, 207);
     }
     .el-dialog .el-dialog__body {
       flex: 1;

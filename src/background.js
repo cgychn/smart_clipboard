@@ -332,7 +332,7 @@ let downloader = {}
 function createDonloadWorker (data) {
   let id = data.id
   const win = new BrowserWindow({
-    show: true,
+    show: false,
     transparent: false,
     fullscreenable: false,
     skipTaskbar: true,
