@@ -1,14 +1,57 @@
 <template>
     <div id="home">
         <div class="title">
-            <div style="width: calc(100% - 50px); -webkit-app-region: drag; height: 100%; display: flex; justify-content: flex-start; align-items: center; flex-wrap: nowrap;">
+            <div :style="`width: calc(100% - ${settingShow ? '30px' : '60px'}); -webkit-app-region: drag; height: 100%; display: flex; justify-content: flex-start; align-items: center; flex-wrap: nowrap;`">
                 <span style="margin-left: 15px; color: rgb(205, 205, 205);">Smart Clipboard</span>
             </div>
         </div>
-        <div style="width: 50px; height: 50px; display: flex; justify-content: flex-end; align-items: center; font-family: '黑体'; position: absolute; right: 0; top: 0; z-index: 10">
+        <div v-if="!settingShow" style="width: 30px; height: 50px; display: flex; justify-content: flex-end; align-items: center; font-family: '黑体'; position: absolute; right: 30px; top: 0; z-index: 10">
+            <div><i class="el-icon-setting" style="margin-right: 15px; cursor: pointer; color: rgb(205, 205, 205);" @click="showSetting()"></i></div>
+        </div>
+        <div style="width: 30px; height: 50px; display: flex; justify-content: flex-end; align-items: center; font-family: '黑体'; position: absolute; right: 0; top: 0; z-index: 10">
             <div><i class="el-icon-close" style="margin-right: 15px; cursor: pointer; color: rgb(205, 205, 205);" @click="close()"></i></div>
         </div>
-        <div class="content">
+        <div v-if="settingShow" style="width: 100%; height: calc(100% - 50px); display: flex; justify-content: center; align-items: center;">
+            <div style="width: 80%; height: 90%; display: flex; justify-content: center; align-content: flex-start; flex-wrap: wrap;">
+                <div style="width: 100%; height: 30px; color: rgb(217, 217, 217); font-weight: bold; display: flex;">配置项</div>
+                <div class="setting-item-container">
+                    <div class="setting-item">
+                        <div class="setting-item-left">
+                            隐私：
+                        </div>
+                        <div class="setting-item-right">
+                            <div style="width: 100%;">
+                                <el-checkbox v-model="setting.hideDevice">隐身使用</el-checkbox>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <el-checkbox v-model="setting.hideClipboardContent">不分享剪切板内容</el-checkbox>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-item-left">
+                            文件传输：
+                        </div>
+                        <div class="setting-item-right">
+                            <div>
+                                <el-radio v-model="setting.skipSameFile" :label="true">同名文件自动跳过</el-radio>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <el-radio v-model="setting.skipSameFile" :label="false">同名文件自动覆盖</el-radio>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 80px; display: flex; justify-content: center; align-items: center;">
+                    <el-button type="primary" size="medium" @click="saveSetting()">应用</el-button>
+                    <el-button size="medium" type="danger" style="margin-left: 30px;" @click="restoreSetting()">返回</el-button>
+                </div>
+                
+            </div>
+        </div>
+        
+        <div v-else class="content">
             <div class="local-service">
                 <span style="color: rgb(205, 205, 205);">本机</span>
                 <br/>
@@ -105,9 +148,99 @@ export default {
         deviceId: "",
         localName: "",
         availableCBList: [],
+        settingShow: false,
+        setting: {
+            skipSameFile: true,
+            hideDevice: false,
+            hideClipboardContent: false,
+        },
+        savedSetting: {
+
+        }
     }
   },
   methods: {
+    async saveSetting () {
+        // 保存到数据库
+        await dbRunPrepare(`update setting set setting_value = '${this.setting.skipSameFile ? "1" : "0"}' where setting_name = 'skipSameFile'`)
+        await dbRunPrepare(`update setting set setting_value = '${this.setting.hideDevice ? "1" : "0"}' where setting_name = 'hideDevice'`)
+        await dbRunPrepare(`update setting set setting_value = '${this.setting.hideClipboardContent ? "1" : "0"}' where setting_name = 'hideClipboardContent'`)
+        this.savedSetting = {...this.setting}
+        this.$message.success("保存成功")
+        this.settingShow = false
+        // broadcase setting
+        ipcRenderer.send("set-setting", this.savedSetting)
+    },
+    async restoreSetting () {
+        if (JSON.stringify(this.setting) != JSON.stringify(this.savedSetting)) {
+            // 提醒用户设置变更
+            try {
+                await this.$confirm('检测到您的变更未保存，此操作不会保存您的变更，是否继续?', '提示', {
+                    confirmButtonText: '是',
+                    cancelButtonText: '否',
+                    type: 'warning'
+                })
+                // 恢复setting
+                this.setting = {...this.savedSetting}
+                this.settingShow = false;
+            } catch (e) {
+                console.error(e)
+            }
+        } else {
+            this.settingShow = false;
+            this.setting = {...this.savedSetting}
+        }
+    },
+    async loadSetting () {
+        try {
+            let res = await dbAll("select * from setting")
+            console.log(res)
+            let settingMap = {}
+            for (let settingItem of res) {
+                settingMap[settingItem.setting_name] = settingItem.setting_value
+            }
+            // 是否跳过复制同名文件
+            if ("skipSameFile" in settingMap) {
+                if (settingMap["skipSameFile"] == "1") {
+                    this.savedSetting["skipSameFile"] = true
+                } else {
+                    this.savedSetting["skipSameFile"] = false
+                }
+            } else {
+                // 更新默认值
+                await dbRunPrepare("insert into setting(setting_name, setting_value) values(?, ?)", "skipSameFile", "0")
+                this.savedSetting["skipSameFile"] = false
+            }
+            // 是否隐藏设备
+            if ("hideDevice" in settingMap) {
+                if (settingMap["hideDevice"] == "1") {
+                    this.savedSetting["hideDevice"] = true
+                } else {
+                    this.savedSetting["hideDevice"] = false
+                }
+            } else {
+                // 更新默认值
+                await dbRunPrepare("insert into setting(setting_name, setting_value) values(?, ?)", "hideDevice", "0")
+                this.savedSetting["hideDevice"] = false
+            }
+            // 是否隐藏剪切板内容
+            if ("hideClipboardContent" in settingMap) {
+                if (settingMap["hideClipboardContent"] == "1") {
+                    this.savedSetting["hideClipboardContent"] = true
+                } else {
+                    this.savedSetting["hideClipboardContent"] = false
+                }
+            } else {
+                // 更新默认值
+                await dbRunPrepare("insert into setting(setting_name, setting_value) values(?, ?)", "hideClipboardContent", "0")
+                this.savedSetting["hideClipboardContent"] = false
+            }
+            this.setting = {...this.savedSetting}
+            ipcRenderer.send("set-setting", this.savedSetting)
+        } catch (e) {
+            console.error(e)
+        }
+    },
     async defaultChanged (device, value) {
         console.log(device, value)
         // update cb_server all record's default 0 and update $device.id default 1
@@ -166,19 +299,23 @@ export default {
     broadcast () {
         clearInterval()
         let ips = this.getLocalIPList();
+        let that = this
         console.log(ips)
         socket.bind(PORT, () => {
             socket.setBroadcast(true); // 开启广播权限
             setInterval(() => {
-                const message = Buffer.from(JSON.stringify({
-                    name: this.localName,
-                    httpServers: [...ips],
-                    id: this.deviceId
-                }));
-                socket.send(message, 0, message.length, PORT, BROADCAST_ADDR, (err) => {
-                    if (err) console.error(err);
-                    else console.log('广播消息已发送');
-                });
+                // 如果隐身模式则跳过广播
+                if (!that.savedSetting.hideDevice) {
+                    const message = Buffer.from(JSON.stringify({
+                        name: this.localName,
+                        httpServers: [...ips],
+                        id: this.deviceId
+                    }));
+                    socket.send(message, 0, message.length, PORT, BROADCAST_ADDR, (err) => {
+                        if (err) console.error(err);
+                        else console.log('广播消息已发送');
+                    });
+                }
             }, 2000);
         });
     },
@@ -215,6 +352,9 @@ export default {
     close () {
         ipcRenderer.send("hide-main-win")
     },
+    showSetting () {
+        this.settingShow = true
+    },
     saveHostname (notice) {
         ipcRenderer.send("set-host-name", this.localName)
         if (notice) {
@@ -230,6 +370,7 @@ export default {
         // 保存到config
         this.saveHostname()
     }
+    await this.loadSetting()
     // 开始广播
     this.loadCBListFromDB()
     this.broadcast()
@@ -241,6 +382,17 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style lang="scss">
+.el-message-box {
+    background-color: #4e4e4e !important;
+    border: 1px solid #474747 !important;
+    width: 80% !important;
+}
+.el-message-box__title {
+    color: #cbcbcb !important;
+}
+.el-message-box__message {
+    color: #c3c3c3 !important;
+}
 #home {
     width: 100%;
     height: 100%;
@@ -259,6 +411,11 @@ export default {
         background-color: #505050 !important;
         border: 1px solid #6f6f6f !important;
     }
+    .el-radio__inner {
+        background-color: #505050;
+        border: 1px solid #6f6f6f !important;
+    }
+    
     .title {
         width: 100%;
         height: 50px;
@@ -303,6 +460,15 @@ export default {
                 margin-top: 15px;
                 overflow: auto;
                 flex-wrap: wrap;
+                &::-webkit-scrollbar {
+                    width: 4px;
+                }
+                /*定义滑块 内阴影+圆角*/
+                &::-webkit-scrollbar-thumb {
+                    width: 4px;
+                    border-radius: 4px;
+                    background-color: #de7d7d;
+                }
                 .cb-list-item {
                     width: 100%;
                     margin-top: 2px;
@@ -337,6 +503,48 @@ export default {
                     }
                 }
             }
+        }
+    }
+    .setting-item-container {
+        width: 100%; 
+        height: calc(100% - 80px - 30px); 
+        overflow: auto;
+        &::-webkit-scrollbar {
+            width: 4px;
+        }
+        /*定义滑块 内阴影+圆角*/
+        &::-webkit-scrollbar-thumb {
+            width: 4px;
+            border-radius: 4px;
+            background-color: #de7d7d;
+        }
+    }
+    .setting-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        width: 100%;
+        min-height: 50px;
+        flex-wrap: wrap;
+        color: rgb(192, 192, 192);
+        margin-bottom: 20px;
+        margin-top: 20px;
+        .setting-item-left {
+            width: 40%;
+            height: 100%;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-start;
+            // background-color: rebeccapurple;
+        }
+        .setting-item-right {
+            width: 55%;
+            height: 100%;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            // background-color: aqua;
         }
     }
 }

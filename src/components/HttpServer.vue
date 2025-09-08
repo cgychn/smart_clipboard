@@ -13,7 +13,12 @@ export default {
   },
   data () {
     return {
-      clipboardList: []
+      clipboardList: [],
+      setting: {
+        skipSameFile: true,
+        hideDevice: false,
+        hideClipboardContent: false,
+      }
     }
   },
   methods: {
@@ -22,6 +27,14 @@ export default {
       http.createServer(function (req, res) {
           console.log(req)
           if (req.url === "/copyFile") {
+            // 前置验证
+            if (that.setting.hideDevice) {
+              res.writeHead(400, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
+              res.end(JSON.stringify({ "result": "fail", "msg": "设备已隐藏" }));
+              return
+            }
+
+
             let body = "";
             req.on('data', (chunk) => {
               body += chunk.toString();
@@ -38,7 +51,7 @@ export default {
                 // write file to response
                 res.writeHead(200, {
                   'Content-Type': 'application/octet-stream',              // 二进制流
-                  'Content-Disposition': 'attachment; filename=' + fileName, // 下载时的文件名
+                  'Content-Disposition': 'attachment; filename=' + encodeURIComponent(fileName), // 下载时的文件名
                   'Content-Length': stat.size
                 });
                 const readStream = fs.createReadStream(filePath);
@@ -51,9 +64,26 @@ export default {
             });
           } else if (req.url === "/cbList") {
             // console.log(that.clipboardList)
+            // 前置验证
+            if (that.setting.hideDevice || that.setting.hideClipboardContent) {
+              res.writeHead(200, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
+              res.end(JSON.stringify({ "result": "success", "data": [], "message": "" }));
+              return
+            }
+
+
             res.writeHead(200, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
             res.end(JSON.stringify({ "result": "success", "data": [ ...that.clipboardList ].reverse(), "message": "" }));
           } else if (req.url === "/listfiles") {
+
+            // 前置验证
+            if (that.setting.hideDevice || that.setting.hideClipboardContent) {
+              res.writeHead(200, { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" });
+              res.end(JSON.stringify({ "result": "success", "data": [], "message": "" }));
+              return
+            }
+
+
             let body = "";
             req.on('data', (chunk) => {
               body += chunk.toString();
@@ -113,6 +143,10 @@ export default {
         } else if (text) {
             that.clipboardList.push({content: text, type: "text", id: new Date().getTime()})
         }
+    })
+    ipcRenderer.on("set-setting", function (event, setting) {
+      // 设置setting
+      that.setting = setting
     })
   }
 }

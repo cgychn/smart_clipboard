@@ -55,6 +55,8 @@ export default {
   },
   methods: {
     deleteTask (task) {
+        // 检查如果任务正在进行中给与提示
+
         console.log(task)
         delete this.downloadProgressMap[task.id]
         // close downloader window
@@ -70,10 +72,21 @@ export default {
     },
     close () {
         ipcRenderer.send("hide-download-progress-win")
+    },
+    checkHaveErrorTasks () {
+        for (let task of Object.values(this.downloadProgressMap)) {
+            if (task.error) {
+                return true
+            }
+        }
+        return false
     }
   },
   mounted () {
     let that = this
+    setInterval(() => {
+        ipcRenderer.send("broadcast-have-error-tasks", that.checkHaveErrorTasks())
+    }, 1500)
     ipcRenderer.on("set-download-progress", function (event, data) {
         that.addDownloadProgressList(data)
     })
@@ -83,13 +96,23 @@ export default {
         if (task) {
             task.complete = true
         }
+        that.$forceUpdate()
     })
     ipcRenderer.on("set-download-error", function (event, data) {
         let taskId = data.id     
         let task = that.downloadProgressMap[taskId]
         if (task) {
             task.error = true
-        }   
+        }
+        that.$forceUpdate()
+    })
+    ipcRenderer.on("set-download-error", function (event, data) {
+        let taskId = data.id     
+        let task = that.downloadProgressMap[taskId]
+        if (task) {
+            task.error = true
+        }
+        that.$forceUpdate()
     })
   }
 }

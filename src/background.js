@@ -23,6 +23,11 @@ let deviceHashFilePath = userPublicPath + "\\device.id"
 let localDB = userPublicPath + "\\local.db"
 const isMac = process.platform === 'darwin';
 let dontClosePasteAssistantWindow = false
+let setting = {
+  skipSameFile: true,
+  hideDevice: false,
+  hideClipboardContent: false,
+}
 
 function loadConfig () {
   let config
@@ -151,6 +156,7 @@ async function createWindow() {
     show: false,
     minWidth: 300,
     frame: false,
+    icon: logoPath,
     transparent: false,
     fullscreenable: false,
     maximizable: false,
@@ -171,7 +177,7 @@ async function createWindow() {
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    win.loadURL('app://./index.html')
+    await win.loadURL('app://./index.html')
   }
 }
 
@@ -186,6 +192,7 @@ async function createPasteAssistantWindow () {
     // parent: toolBarWindow,
     frame: false,
     show: false,
+    icon: logoPath,
     skipTaskbar: true,
     resizable: false,
     alwaysOnTop: true,
@@ -228,6 +235,7 @@ async function createHttpServerWindow () {
     show: false,
     transparent: false,
     fullscreenable: false,
+    icon: logoPath,
     skipTaskbar: true,
     maximizable: false,
     webPreferences: {
@@ -257,6 +265,7 @@ async function createFloatToolbar () {
     transparent: false,
     fullscreenable: false,
     skipTaskbar: true,
+    icon: logoPath,
     maximizable: false,
     minimizable: false,
     alwaysOnTop: true,
@@ -302,6 +311,7 @@ async function createDownloadProgress () {
     fullscreenable: false,
     skipTaskbar: false,
     maximizable: false,
+    icon: logoPath,
     alwaysOnTop: false,
     resizable: false,
     frame: false,
@@ -335,6 +345,7 @@ function createDonloadWorker (data) {
     show: false,
     transparent: false,
     fullscreenable: false,
+    icon: logoPath,
     skipTaskbar: true,
     maximizable: false,
     resizable: false,
@@ -573,6 +584,26 @@ ipcMain.handle('get-deviceid', () => {
   return deviceId
 })
 
+ipcMain.handle('get-setting', () => {
+  console.log("get-setting", setting)
+  return setting
+})
+
+ipcMain.on('set-setting', (event, data) => {
+  console.log("set-setting", data)
+  setting = data
+  if (httpServerWindow) {
+    httpServerWindow.webContents.send("set-setting", data)
+  }
+})
+
+ipcMain.on("broadcast-have-error-tasks", (event, data) => {
+  console.log("broadcast-have-error-tasks", data)
+  if (toolBarWindow) {
+    toolBarWindow.webContents.send("set-warning", data)
+  }
+})
+
 // ====================== 下载 ==================================
 ipcMain.on("start-download", (event, data) => {
   console.log("start-download", data)
@@ -603,6 +634,7 @@ ipcMain.on("download-complete", (event, data) => {
   // 通知 toolbar 下载完成
   if (toolBarWindow) {
     toolBarWindow.webContents.send("op-transfering-count", {delt: -1})
+    toolBarWindow.webContents.send("success-twinkle", {})
   }
   // 通知 下载任务列表 下载完成
   if (downloadProgressWindow) {
@@ -623,6 +655,7 @@ ipcMain.on("download-error", (event, data) => {
   // 通知 toolbar 下载失败
   if (toolBarWindow) {
     toolBarWindow.webContents.send("op-transfering-count", {delt: -1})
+    toolBarWindow.webContents.send("error-twinkle", {})
   }
   // 通知 下载任务列表 下载失败
   if (downloadProgressWindow) {

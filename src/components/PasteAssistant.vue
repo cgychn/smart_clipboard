@@ -14,7 +14,7 @@
           </el-tabs>
         </div>
         
-        <div class="cblist-empty-placeholder" v-if="clipboardList.length >= 0">
+        <div class="cblist-empty-placeholder" v-if="clipboardList.length == 0">
           该剪切板暂无数据
         </div>
         <div v-else style="width: 100%; height: calc(100% - 50px); overflow: auto;">

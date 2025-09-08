@@ -6,6 +6,13 @@ const fs = require("fs")
 const path = require("path")
 import { ipcRenderer } from "electron";
 import { url } from "inspector";
+
+async function getSetting () {
+    const data = await ipcRenderer.invoke('get-setting')
+    console.log(data)
+    return data
+}
+
 export default {
   name: 'Downloader',
   components: {
@@ -19,16 +26,26 @@ export default {
     }
   },
   methods: {
-    dealDownload (filePath, destFilePath, serverPath) {
+    dealDownload (filePath, destFilePath, serverPath, skipSameFile) {
         // 创建空文件
         let dirname = path.dirname(destFilePath)
         if (!fs.existsSync(dirname)) {
             fs.mkdirSync(dirname, {recursive: true})
         }
-        fs.writeFileSync(destFilePath, "")
         let that = this
         return new Promise(async (resolve, reject) => {
             try {
+                // 验证是否跳过已有文件
+                if (skipSameFile && fs.existsSync(destFilePath)) {
+                    ipcRenderer.send("broadcast-download-progress", {
+                        id: that.taskId, 
+                        currentDownloadFile: filePath, 
+                        currentFileDownloadProgress: 100, 
+                        totalFileCount: that.fileList.length
+                    })
+                    resolve()
+                    return
+                }
                 let response = await fetch(`${serverPath}/copyFile`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -79,6 +96,10 @@ export default {
   mounted () {
     let that = this
     ipcRenderer.on("start-download", async function (event, {id, fileList, toDir, serverPath}) {
+        // 先获取setting
+        let setting = await getSetting()
+        
+        // 开始下载逻辑
         that.taskId = id
         that.fileList = fileList
         console.log(fileList, toDir, serverPath)
@@ -102,7 +123,7 @@ export default {
                 if (file.isFile) {
                     // console.log("file:", file.filePath)
                     // download file
-                    await that.dealDownload(file.filePath, toFilePath, serverPath)
+                    await that.dealDownload(file.filePath, toFilePath, serverPath, setting.skipSameFile)
                     console.log("file downloaded")
                 } else {
                     // create dir first
@@ -132,7 +153,7 @@ export default {
                 console.log(e)
                 // error ocur do sth
                 ipcRenderer.send("download-error", {id, file});
-                break;
+                return
             }
         }
         console.log("compeletd")
