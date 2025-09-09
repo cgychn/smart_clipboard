@@ -218,10 +218,15 @@ export default {
         toDir: result[0],
         serverPath: `http://${ip}:13238`
       })
+      // 提示文件已经开始传输
+      this.$message({
+        message: "文件开始传输至指定位置，点屏幕右下角悬窗查看传输进度"
+      })
     },
     copyToClipboard (item) {
       console.log(item)
       clipboard.writeText(item.content)
+      this.$message.success("内容已复制到剪切板")
     }
   },
   mounted () {
@@ -251,6 +256,10 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style lang="scss">
+.el-message {
+  width: 80% !important;
+  min-width: 0 !important;
+}
 #paste-assistant {
     width: 100%;
     height: 100%;
@@ -258,7 +267,7 @@ export default {
     background-color: rgb(47, 47, 47);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: center;   
     .el-dialog {
       display: flex;
       flex-direction: column;

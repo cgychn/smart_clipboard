@@ -2,7 +2,7 @@
     <div id="download-progress-container">
         <div class="title">
             <div style="width: calc(100% - 50px); -webkit-app-region: drag; height: 100%; display: flex; justify-content: flex-start; align-items: center; flex-wrap: nowrap;">
-                <span style="margin-left: 15px; color: rgb(205, 205, 205);">传输任务</span>
+                <span style="margin-left: 15px; color: rgb(205, 205, 205);">传输任务中心</span>
             </div>
         </div>
         <div style="width: 50px; height: 50px; display: flex; justify-content: flex-end; align-items: center; font-family: '黑体'; position: absolute; right: 0; top: 0; z-index: 10">
@@ -10,27 +10,39 @@
         </div>
         <div class="content">
             <div class="list-empty-placeholder" v-if="getDownloadProgressList().length === 0">
-                当前无下载任务
+                当前无传输任务
             </div>
             <div class="file-item" v-for="downloadProgress in getDownloadProgressList()">
                 <div class="file-item-img">
                     <img src="/img/files.png" style="width: 70%;" />
-                    <div class="bubble" v-if="downloadProgress.totalFileCount > 1">{{ downloadProgress.totalFileCount }}</div>
+                    <div class="bubble" v-if="downloadProgress.fileList.length > 1">{{ downloadProgress.fileList.length }}</div>
                 </div>
-                <div class="file-item-content">
+                <div class="file-item-content" :style="`${downloadProgress.complete ? 'width: calc(100% - 60px - 70px);' : ''}`">
                     <div class="file-name">
-                        <div style="width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="downloadProgress.currentDownloadFile">{{ downloadProgress.currentDownloadFile }}</div>
+                        <div :style="`${downloadProgress.fileList.length > 1 ? 'width: calc(100% - 30px)' : 'width: 100%'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`" :title="downloadProgress.fileList[0].filePath">{{ downloadProgress.fileList[0].filePath }}</div>
+                        <div style="width: 30px; display: flex; justify-content: center;" v-if="downloadProgress.fileList.length > 1">
+                            <el-tooltip class="item" effect="dark" content="等多个文件" placement="top-start">
+                                <i class="el-icon-more"></i>
+                            </el-tooltip>
+                        </div>
                     </div>
                     <div class="progress-bar">
-                        <div class="thumb-total">
+                        <div class="thumb-total" :style="`${!downloadProgress.complete && !downloadProgress.error ? 'width: calc(100% - 90px);' : ''}`">
                             <div class="thumb-inner-success" :style="`width: 100%;`" v-if="downloadProgress.complete"></div>
                             <div class="thumb-inner-error" :style="`width: 40%;`" v-else-if="downloadProgress.error"></div>
                             <div class="thumb-inner" :style="`width: ${downloadProgress.currentFileDownloadProgress}%;`" v-else></div>
                         </div>
+                        <div style="width: 90px; color: white; font-size: 12px; display: flex; justify-content: center;" v-if="!downloadProgress.complete && !downloadProgress.error">
+                            {{ formatSize(downloadProgress.speedPS) }} / s
+                        </div>
                     </div>
                 </div>
-                <div class="file-item-op">
-                    <i class="el-icon-close" style="cursor: pointer; color: rgb(205, 205, 205);" @click="deleteTask(downloadProgress)"></i>
+                <div class="file-item-op" :style="`${downloadProgress.complete ? 'width: 70px;' : ''}`">
+                    <i v-if="downloadProgress.complete" class="el-icon-folder" style="cursor: pointer; color: rgb(205, 205, 205);" @click.stop="openFolder(downloadProgress)"></i>
+                    <i class="el-icon-close" style="cursor: pointer; color: rgb(205, 205, 205);" @click.stop="deleteTask(downloadProgress)"></i>
+                </div>
+                <div class="file-item-extra" v-if="!downloadProgress.error && !downloadProgress.complete">
+                    正在处理：{{ getFileName(downloadProgress.currentDownloadFile) }}
                 </div>
             </div>
         </div>
@@ -38,7 +50,14 @@
 </template>
 
 <script>
-import { ipcRenderer } from "electron";
+import { ipcRenderer, shell } from "electron";
+const path = require("path")
+import Vue from "vue"
+async function closeDownload (dt) {
+    const data = await ipcRenderer.invoke('stop-download', dt)
+    return data
+}
+
 export default {
   name: 'DownloadProgress',
   components: {
@@ -47,25 +66,74 @@ export default {
   },
   data () {
     return {
-        // {currentDownloadFile: "D:\\aqwdw\\wdww.txt", currentFileDownloadProgress: 60, id: 123456, totalFileCount: 2},
+        // {currentDownloadFile: "D:\\aqwdw\\wdww.txt", currentFileDownloadProgress: 60, id: 123456, fileList: []},
       downloadProgressMap: {
-        // "123456": {currentDownloadFile: "D:\\aqwdw\\wdww.txt", currentFileDownloadProgress: 60, id: 123456, totalFileCount: 2},
+        // "123456": {currentDownloadFile: "D:\\aqwdw\\aqwdw\\aqwdw\\aqwdw\\aqwdw\\aqwdw\\aqwdw\\aqwdw\\wdww.txt", currentFileDownloadProgress: 60, id: 123456, fileList: [{filePath: "wwwwwwwwwwwwwwwwwwww1"}], complete: true},
       }
     }
   },
   methods: {
-    deleteTask (task) {
+    openFolder (file) {
+        shell.openPath(file.destFilePath);
+    },
+    getFileName (filePath) {
+        return path.basename(filePath)
+    },
+    formatSize(bytes) {
+      if (bytes) {
+        if (bytes < 1024) {
+          return bytes + " B";
+        } else if (bytes < 1048576) {
+          return (bytes / 1024).toFixed(2) + " KB";
+        } else if (bytes < 1073741824) {
+          return (bytes / 1048576).toFixed(2) + " MB";
+        } else {
+          return (bytes / 1073741824).toFixed(2) + " GB";
+        }
+      } else {
+        return "0 B";
+      }
+    },
+    async deleteTask (task) {
         // 检查如果任务正在进行中给与提示
-
-        console.log(task)
-        delete this.downloadProgressMap[task.id]
-        // close downloader window
-        ipcRenderer.send("stop-download", {id: task.id})
+        if (!task.error && !task.complete) {
+            // 任务进行中
+            try {
+                await this.$confirm('文件仍在下载中，此操作将会中断下载，是否继续?', '提示', {
+                    confirmButtonText: '是',
+                    cancelButtonText: '否',
+                    type: 'warning'
+                })
+                console.log(task)
+                // close downloader window
+                await closeDownload({id: task.id})
+                delete this.downloadProgressMap[task.id]
+            } catch (e) {
+                console.log(e)
+                // do nothing
+            }   
+        } else {
+            console.log(task)
+            await closeDownload({id: task.id})
+            delete this.downloadProgressMap[task.id]
+            // close downloader window
+        }
+        this.$forceUpdate()
     },
     addDownloadProgressList (file) {
         console.log(file)
-        this.downloadProgressMap[file.id] = file
-        this.$forceUpdate()
+        if (this.downloadProgressMap[file.id]) {
+            if (this.downloadProgressMap[file.id].currentDownloadFile != file.currentDownloadFile) {
+                let tmpFile = {...file}
+                tmpFile.currentFileDownloadProgress = 0
+                Vue.set(this.downloadProgressMap, file.id, tmpFile)
+                Vue.set(this.downloadProgressMap, file.id, file)
+            } else {
+                Vue.set(this.downloadProgressMap, file.id, file)
+            }
+        } else {
+            Vue.set(this.downloadProgressMap, file.id, file)
+        }
     },
     getDownloadProgressList () {
         return Object.values(this.downloadProgressMap).sort((a, b) => b.id - a.id)
@@ -83,6 +151,11 @@ export default {
     }
   },
   mounted () {
+    // this.$message({
+    //     message: "文件开始传输至指定位置，点屏幕右下角悬窗查看传输进度",
+    //     duration: 0
+    // })
+
     let that = this
     setInterval(() => {
         ipcRenderer.send("broadcast-have-error-tasks", that.checkHaveErrorTasks())
@@ -162,7 +235,7 @@ export default {
     }
     .file-item {
         width: 100%;
-        height: 60px;
+        min-height: 60px;
         // background-color: red;
         display: flex;
         justify-content: flex-start;
@@ -171,7 +244,22 @@ export default {
         // background-color: #6b6b6b;
         // border-radius: 5px;
         border-bottom: 1px solid grey;
-
+        flex-wrap: wrap;
+        .file-item-extra {
+            width: 90%; 
+            padding-top: 10px;
+            padding-bottom: 10px;
+            font-size: 13px;
+            margin-left: auto; margin-right: auto; 
+            margin-bottom: 10px;
+            word-wrap: break-word;  /* 让长单词或连续文本自动换行 */
+            word-break: break-all;  /* 针对中文和英文强制换行 */
+            white-space: normal;    /* 允许正常换行 */
+            color: rgb(191, 191, 191);
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap;
+        }
         .file-item-img {
             height: 60px;
             width: 60px;
@@ -248,7 +336,7 @@ export default {
             height: 60px;
             width: 50px;
             display: flex;
-            justify-content: center;
+            justify-content: space-around;
             align-items: center;
             // background-color: #0f0d0d;
         }

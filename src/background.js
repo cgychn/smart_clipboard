@@ -316,7 +316,7 @@ async function createDownloadProgress () {
     resizable: false,
     frame: false,
     width: 400,
-    height: 600,
+    height: 450,
     webPreferences: {
       nodeIntegrationInWorker: true,
       webSecurity: false,
@@ -680,11 +680,16 @@ ipcMain.on("broadcast-download-progress", (event, data) => {
   }
 })
 
-ipcMain.on("stop-download", (event, data) => {
+ipcMain.handle("stop-download", (event, data) => {
   console.log(data)
   if (downloader[data.id]) {
     downloader[data.id].close()
+    delete downloader[data.id]
   }
+  if (toolBarWindow) {
+    toolBarWindow.webContents.send("op-transfering-count", {delt: -1})
+  }
+  return true
 })
 
 ipcMain.handle("open-dialog", (event, data) => {

@@ -22,11 +22,15 @@ export default {
   data () {
     return {
       taskId: null,
-      fileList: []
+      fileList: [],
+      copiedSize: 0,
+      lastCopiedSize: 0,
+      speedPS: 0,
+      interval: null
     }
   },
   methods: {
-    dealDownload (filePath, destFilePath, serverPath, skipSameFile) {
+    dealDownload (filePath, destFilePath, serverPath, skipSameFile, toDir) {
         // 创建空文件
         let dirname = path.dirname(destFilePath)
         if (!fs.existsSync(dirname)) {
@@ -41,7 +45,10 @@ export default {
                         id: that.taskId, 
                         currentDownloadFile: filePath, 
                         currentFileDownloadProgress: 100, 
-                        totalFileCount: that.fileList.length
+                        totalFileCount: that.fileList.length,
+                        speedPS: that.speedPS,
+                        fileList: that.fileList,
+                        destFilePath: toDir
                     })
                     resolve()
                     return
@@ -66,6 +73,8 @@ export default {
                         if (done) break;
                         fileStream.write(value);
                         downloaded += value.length;
+                        // 叠加总大小
+                        that.copiedSize += value.length
                         if (total) {
                             const percent = ((downloaded / total) * 100).toFixed(2);
                             console.log(`\r下载进度: ${percent}% (${downloaded}/${total} bytes)`);
@@ -75,7 +84,10 @@ export default {
                                 id: that.taskId, 
                                 currentDownloadFile: filePath, 
                                 currentFileDownloadProgress: parseInt(percent), 
-                                totalFileCount: that.fileList.length
+                                totalFileCount: that.fileList.length,
+                                speedPS: that.speedPS,
+                                fileList: that.fileList,
+                                destFilePath: toDir
                             })
                         } else {
                             console.log(`\r已下载: ${downloaded} bytes`);
@@ -91,10 +103,22 @@ export default {
                 reject()
             }
         })
+    },
+    createSpeedCalculator () {
+        let that = this
+        if (this.interval) {
+            clearInterval(this.interval)
+        }
+        this.interval = setInterval(() => {
+            that.speedPS = that.copiedSize - that.lastCopiedSize
+            that.lastCopiedSize = that.copiedSize
+        }, 1000)
     }
   },
   mounted () {
     let that = this
+    // create interval
+    this.createSpeedCalculator();
     ipcRenderer.on("start-download", async function (event, {id, fileList, toDir, serverPath}) {
         // 先获取setting
         let setting = await getSetting()
@@ -123,7 +147,7 @@ export default {
                 if (file.isFile) {
                     // console.log("file:", file.filePath)
                     // download file
-                    await that.dealDownload(file.filePath, toFilePath, serverPath, setting.skipSameFile)
+                    await that.dealDownload(file.filePath, toFilePath, serverPath, setting.skipSameFile, toDir)
                     console.log("file downloaded")
                 } else {
                     // create dir first
@@ -132,7 +156,9 @@ export default {
                         id: that.taskId, 
                         currentDownloadFile: file.filePath, 
                         currentFileDownloadProgress: 100, 
-                        totalFileCount: that.fileList.length
+                        fileList: that.fileList,
+                        speedPS: that.speedPS,
+                        destFilePath: toDir
                     })
                     // fetch listfile
                     let { data } = await that.ajax.post(serverPath + "/listfiles", {filePath: file.filePath})
