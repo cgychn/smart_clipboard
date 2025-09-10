@@ -27,8 +27,12 @@
                   </div>
                   <img src="/img/files.png" style="height: 90%;"></img>
                 </template>
-                <template v-else>
+                <template v-else-if="item.type === 'text'">
                   <img src="/img/text.png" style="height: 90%;"></img>
+                </template>
+                <template v-else-if="item.type === 'image'">
+                  <img v-if="item.imageShowPath" :src="item.imageShowPath" style="height: 90%; width: 90%; object-fit: contain;"></img>
+                  <i class="el-icon-loading" style="font-size: 20px; color: white;" v-else></i>
                 </template>
               </div>
             </div>
@@ -39,8 +43,11 @@
                     {{ item.content[0].filePath }}
                   </template>
                 </span>
-                <span v-else>
+                <span v-else-if="item.type === 'text'">
                   {{ item.content }}
+                </span>
+                <span v-else-if="item.type === 'image'">
+                  图片
                 </span>
               </div>
               <div class="cb-item-content-op" :style="checkExpand(item) ? 'width: 100%;' : ''">
@@ -62,24 +69,39 @@
         <div class="detail_body" v-if="detail.textDetail" style="width: 100%; max-height: 200px; overflow: auto; color: white;">
           {{ detail.textDetail }}
         </div>
-        <div class="detail_body" v-else style="width: 100%; max-height: 200px; overflow: auto; color: white;">
+        <div class="detail_body" v-else-if="detail.fileDetail" style="width: 100%; max-height: 200px; overflow: auto; color: white;">
           <div v-for="file in detail.fileDetail" style="padding-left: 5px; padding-right: 5px;">
             <div style="width: 100%; height: 30px;" class="marquee" @mouseenter="showMarquee($event, $event.currentTarget)" @mouseleave="removeMarquee($event, $event.currentTarget)">
               <span>{{ file.filePath }}</span>
             </div>
           </div>
         </div>
+        <div v-else-if="detail.imageDetail" style="width: 100%; max-height: 200px; overflow: auto; color: white; display: flex; justify-content: center; flex-wrap: wrap;">
+          <img :src="detail.imageDetail" style="width: 100%; height: 100%; object-fit: contain;"></img>
+          <el-button type="text" style="margin-top: 5px;" @click="showFile(detail.imageDetail)">查看大图</el-button>
+        </div>
       </el-dialog>
     </div>
 </template>
 
 <script>
-import { ipcRenderer, clipboard } from 'electron'
+import { ipcRenderer, clipboard, shell, nativeImage } from 'electron'
 import Icon from "./common/Icon.vue"
+const fs = require("fs")
+const path = require("path")
 
 async function openDialog (title) {
   try {
     let res = await ipcRenderer.invoke("open-dialog", {dialogTitle: title})
+    return res;
+  } catch (error) {
+    return error
+  }
+}
+
+async function getPublicPath () {
+  try {
+    let res = await ipcRenderer.invoke("get-public-path")
     return res;
   } catch (error) {
     return error
@@ -114,16 +136,71 @@ export default {
         //   content: "这是一段文字" // the content of clipboard
         // }
       ],
+      userPublicPath: "",
       expandItems: new Set(),
       activeName: null,
       detailDialogVisible: false,
       detail: {
         textDetail: "",
         fileDetail: null,
-      }
+      },
+      loadingImages: new Set()
     }
   },
   methods: {
+    showFile (filePath) {
+      console.log(filePath)
+      shell.openPath(filePath)
+    },
+    async downloadRemoteImageToLocal (serverPath, serverId, imagePath, clipboardId) {
+      let that = this
+      return new Promise(async (resolve, reject) => {
+        // 创建根目录
+        fs.mkdirSync(this.userPublicPath + "\\.remote_images\\" + serverId, {recursive: true})
+        // 创建文件
+        let fileName = path.basename(imagePath)
+        let destFilePath = this.userPublicPath + "\\.remote_images\\" + serverId + "\\" + fileName
+        fs.writeFileSync(destFilePath, "")
+        // 将文件下载到该位置
+        let response = await fetch(`${serverPath}/copyFile`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filePath: imagePath
+            })
+        })
+        if (!response.ok) {
+            console.error(response.statusText)
+            reject()
+        } else {
+            const fileStream = fs.createWriteStream(destFilePath);
+            const reader = response.body.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                fileStream.write(value);
+            }
+            fileStream.end();
+            console.log("image download complete")
+            resolve()
+        }
+        that.loadingImages.delete(serverId + " " + clipboardId)
+        // that.$forceUpdate()    
+      })
+    },
+    getImageShowPath (serverPath, serverId, imagePath, clipboardId) {
+      let fileName = path.basename(imagePath)
+      let showPath = this.userPublicPath + "\\.remote_images\\" + serverId + "\\" + fileName
+      if (!fs.existsSync(showPath)) {
+        // 开始下载文件
+        if (!this.loadingImages.has(serverId + " " + clipboardId)) {
+          this.loadingImages.add(serverId + " " + clipboardId)
+          this.downloadRemoteImageToLocal(serverPath, serverId, imagePath, clipboardId)
+        }
+        return null;
+      }
+      return showPath;
+    },
     showMarquee (event, el) {
       console.log(el)
       let span = el.querySelector("span");
@@ -169,6 +246,13 @@ export default {
             try {
               let { data } = await this.ajax.post('http://' + ip + ":13238/cbList")
               // console.log(data)
+              for (let item of data.data) {
+                item.serverId = server.id
+                item.serverPath = `http://${ip}:13238`
+                if (item.type === "image") {
+                  item.imageShowPath = this.getImageShowPath(item.serverPath, item.serverId, item.content, item.id)
+                }
+              }
               this.clipboardList = data.data
             } catch (e) {
               console.error(e)
@@ -193,9 +277,16 @@ export default {
       if (item.type == "text") {
         this.detail.fileDetail = null
         this.detail.textDetail = item.content
-      } else {
+        this.detail.imageDetail = null
+      } else if (item.type == 'filePaths') {
         this.detail.fileDetail = item.content
         this.detail.textDetail = null
+        this.detail.imageDetail = null
+      } else if (item.type == "image") {
+        // 显示图片，并支持外部查看器打开显示
+        this.detail.textDetail = null
+        this.detail.fileDetail = null
+        this.detail.imageDetail = item.imageShowPath
       }
     },
     async transferToLocal (item) {
@@ -225,12 +316,20 @@ export default {
     },
     copyToClipboard (item) {
       console.log(item)
-      clipboard.writeText(item.content)
-      this.$message.success("内容已复制到剪切板")
+      if (item.type === "text") {
+        clipboard.writeText(item.content)
+        this.$message.success("文本内容已复制到剪切板")
+      } else if (item.type === "image") {
+        // copy image to clipboard
+        let image = nativeImage.createFromPath(item.imageShowPath)
+        clipboard.writeImage(image)
+        this.$message.success("图片已复制到剪切板")
+      }
     }
   },
-  mounted () {
+  async mounted () {
     let that = this;
+    this.userPublicPath = await getPublicPath()
     ipcRenderer.on("set-cblist", function (event, data) {
       // console.log(data)
       that.serverList = data

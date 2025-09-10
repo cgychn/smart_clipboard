@@ -21,6 +21,7 @@ let configPathTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__di
 let dbTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + "\\local.db" : path.dirname(app.getPath("exe")) + "\\local.db"
 let deviceHashFilePath = userPublicPath + "\\device.id"
 let localDB = userPublicPath + "\\local.db"
+let tempImageFileRoot = userPublicPath + "\\.temp_images";
 const isMac = process.platform === 'darwin';
 let dontClosePasteAssistantWindow = false
 let setting = {
@@ -28,6 +29,7 @@ let setting = {
   hideDevice: false,
   hideClipboardContent: false,
 }
+fs.mkdirSync(tempImageFileRoot, {recursive: true})
 
 function loadConfig () {
   let config
@@ -236,7 +238,7 @@ async function createHttpServerWindow () {
     transparent: false,
     fullscreenable: false,
     icon: logoPath,
-    skipTaskbar: true,
+    skipTaskbar: false,
     maximizable: false,
     webPreferences: {
       nodeIntegrationInWorker: true,
@@ -420,19 +422,42 @@ async function checkHotKey (key) {
     console.log("复制快捷键触发")
     // 读取剪切板内容
     setTimeout(async () => {
-      console.log("Formats:", clipboard.availableFormats());
-      let text = clipboard.readText()
-      console.log("text", text)
+      let avalibleFormats = clipboard.availableFormats()
+      console.log("Formats:", avalibleFormats);
+      let text;
+      let image;
       let filePaths = []
-      if (!text) {
+      if (avalibleFormats.indexOf("text/plain") != -1) {
+        // 读取文本
+        text = clipboard.readText()
+      } else if (avalibleFormats.indexOf("image/png") != -1 || avalibleFormats.indexOf("image/jpeg") != -1) {
+        // 读取图片
+        image = clipboard.readImage()
+      } else if (avalibleFormats.indexOf("text/uri-list") != -1) {
+        // 读取文件
         filePaths = await readFromClipBoard()
-        // filePaths = clipboardEx.readFilePaths()
+      }
+      if (text) {
+        console.log("text:", text)
+      }
+      if (image) {
+        console.log("img:", image)
       }
       // console.log(getClipboardFiles())
       console.log(filePaths)
+      console.log("read done")
       // 发送到页面处理
+      let tempPath;
       if (httpServerWindow) {
-        httpServerWindow.webContents.send('append-clipboard', {filePaths, text})
+        if (image) {
+          // write image to temp file, and send temp file to http server
+          // console.log(image.toDataURL())
+          console.log("write start")
+          tempPath = tempImageFileRoot + "\\" + new Date().getTime() + ".png"
+          fs.writeFileSync(tempPath, image.toPNG());
+          console.log("write done")
+        }
+        httpServerWindow.webContents.send('append-clipboard', {filePaths, text, image: image ? tempPath : ""})
       }
     }, 100)
   } else if (key.keycode === 47 && key.ctrlKey && key.altKey) {
@@ -587,6 +612,11 @@ ipcMain.handle('get-deviceid', () => {
 ipcMain.handle('get-setting', () => {
   console.log("get-setting", setting)
   return setting
+})
+
+ipcMain.handle("get-public-path", () => {
+  console.log("get-public-path", userPublicPath)
+  return userPublicPath
 })
 
 ipcMain.on('set-setting', (event, data) => {

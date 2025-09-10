@@ -123,26 +123,28 @@ export default {
   mounted () {
     this.createHttpServer()
     let that = this
-    ipcRenderer.on("append-clipboard", function (event, {filePaths, text}) {
-        // 最多保持5个历史
-        console.log({filePaths, text})
-        if (that.clipboardList.length >= 5 && (text || (filePaths && filePaths.length > 0))) {
-            that.clipboardList.shift()
+    ipcRenderer.on("append-clipboard", function (event, {filePaths, text, image}) {
+      // 最多保持5个历史
+      console.log({filePaths, text, image})
+      if (that.clipboardList.length >= 5 && (text || (filePaths && filePaths.length > 0))) {
+        that.clipboardList.shift()
+      }
+      if (filePaths && filePaths.length > 0) {
+        let fileList = []
+        for (let filePath of filePaths) {
+          let fileInfo = fs.statSync(filePath)
+          fileList.push({
+            isFile: fileInfo.isFile(),
+            filePath: filePath,
+            fileSize: fileInfo.size
+          })
         }
-        if (filePaths && filePaths.length > 0) {
-            let fileList = []
-            for (let filePath of filePaths) {
-                let fileInfo = fs.statSync(filePath)
-                fileList.push({
-                    isFile: fileInfo.isFile(),
-                    filePath: filePath,
-                    fileSize: fileInfo.size
-                })
-            }
-            that.clipboardList.push({content: fileList, type: "filePaths", id: new Date().getTime()})
-        } else if (text) {
-            that.clipboardList.push({content: text, type: "text", id: new Date().getTime()})
-        }
+        that.clipboardList.push({content: fileList, type: "filePaths", id: new Date().getTime()})
+      } else if (text) {
+        that.clipboardList.push({content: text, type: "text", id: new Date().getTime()})
+      } else if (image) {
+        that.clipboardList.push({content: image, type: "image", id: new Date().getTime()})
+      }
     })
     ipcRenderer.on("set-setting", function (event, setting) {
       // 设置setting
