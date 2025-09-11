@@ -123,7 +123,6 @@ const fs = require("fs")
 const dgram = require('dgram');
 const socket = dgram.createSocket('udp4');
 const os = require("os")
-const BROADCAST_ADDR = '255.255.255.255'; // 广播地址
 const PORT = 18268; // 自定义端口
 
 async function dbRunPrepare (sqlStr, ...params) {
@@ -276,21 +275,6 @@ export default {
             device.default = !value
         }
     },
-    getLocalIPList() {
-        const interfaces = os.networkInterfaces();
-        const ips = [];
-        for (const name in interfaces) {
-            for (const iface of interfaces[name]) {
-                // 跳过 IPv6 和 内部地址（127.0.0.1）
-                if (iface.family === 'IPv4' && !iface.internal) {
-                    ips.push({
-                        address: iface.address,
-                    });
-                }
-            }
-        }
-        return ips;
-    },
     async loadCBListFromDB () {
         let res = await dbAll("select * from cb_server")
         console.log(res)
@@ -316,28 +300,49 @@ export default {
             ipcRenderer.send('sync-cblist', that.availableCBList)
         }, 1000)
     },
+    getLocalIPv4() {
+        const interfaces = os.networkInterfaces();
+        const addrs = [];
+        for (const name in interfaces) {
+            for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                addrs.push(iface);
+            }
+            }
+        }
+        return addrs;
+    },
+    getBroadcastAddress(ip, netmask) {
+        const ipParts = ip.split('.').map(Number);
+        const maskParts = netmask.split('.').map(Number);
+        const broadcastParts = ipParts.map((p, i) => (p & maskParts[i]) | (~maskParts[i] & 255));
+        return broadcastParts.join('.');
+    },
     broadcast () {
         clearInterval()
-        let ips = this.getLocalIPList();
+        let interfaces = this.getLocalIPv4();
         let that = this
-        console.log(ips)
-        socket.bind(PORT, () => {
-            socket.setBroadcast(true); // 开启广播权限
-            setInterval(() => {
-                // 如果隐身模式则跳过广播
-                if (!that.savedSetting.hideDevice) {
-                    const message = Buffer.from(JSON.stringify({
-                        name: this.localName,
-                        httpServers: [...ips],
-                        id: this.deviceId
-                    }));
-                    socket.send(message, 0, message.length, PORT, BROADCAST_ADDR, (err) => {
-                        if (err) console.error(err);
-                        else console.log('广播消息已发送');
-                    });
-                }
-            }, 2000);
-        });
+
+        // 对每个网卡都开启广播
+        for (let intef of interfaces) {
+            let broadcaseAddr = this.getBroadcastAddress(intef.address, intef.netmask)
+            socket.bind(PORT, intef.address, () => {
+                socket.setBroadcast(true); // 开启广播权限
+                setInterval(() => {
+                    // 如果隐身模式则跳过广播
+                    if (!that.savedSetting.hideDevice) {
+                        const message = Buffer.from(JSON.stringify({
+                            name: this.localName,
+                            id: this.deviceId
+                        }));
+                        socket.send(message, 0, message.length, PORT, broadcaseAddr, (err) => {
+                            if (err) console.error(err);
+                            else console.log('广播消息已发送');
+                        });
+                    }
+                }, 2000);
+            });
+        }
     },
     listenBroadcast () {
         let that = this;
