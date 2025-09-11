@@ -6,7 +6,7 @@ smart_clipboard 是一款局域网内使用的智能剪切板软件，支持文�
 
 ##### 主界面
 
-![ ](X:\cgy\自己开发的项目相关\smart_clipboard\main.png)
+![ ](https://github.com/cgychn/smart_clipboard/blob/master/doc_images/main.png?raw=true)
 
 该界面显示本机的一些信息，以及局域网内可用的剪切板。
 
@@ -14,7 +14,7 @@ smart_clipboard 是一款局域网内使用的智能剪切板软件，支持文�
 
 ##### 设置界面
 
-![ ](X:\cgy\自己开发的项目相关\smart_clipboard\mainsetting.png)
+![ ](https://github.com/cgychn/smart_clipboard/blob/master/doc_images/mainsetting.png?raw=true)
 
 该界面显示一些设置，包括隐私选项以及同名文件的处理。
 
@@ -22,7 +22,7 @@ smart_clipboard 是一款局域网内使用的智能剪切板软件，支持文�
 
 ##### 托盘图标
 
-![ ](X:\cgy\自己开发的项目相关\smart_clipboard\toolbar.png)
+![ ](https://github.com/cgychn/smart_clipboard/blob/master/doc_images/toolbar.png?raw=true)
 
 该软件的托盘，图标，点击可展示主界面。
 
@@ -30,7 +30,7 @@ smart_clipboard 是一款局域网内使用的智能剪切板软件，支持文�
 
 ##### 粘贴窗口
 
-![ ](X:\cgy\自己开发的项目相关\smart_clipboard\assitantpannel.png)
+![ ](https://github.com/cgychn/smart_clipboard/blob/master/doc_images/assitantpannel.png?raw=true)
 
 按 ctrl + shift + i 显示该窗口，该窗口显示各局域网内可用的剪切板内容，并可执行一系列操作。
 
@@ -38,7 +38,7 @@ smart_clipboard 是一款局域网内使用的智能剪切板软件，支持文�
 
 ##### 悬浮窗
 
-![ ](X:\cgy\自己开发的项目相关\smart_clipboard\floatbubble.png)
+![ ](https://github.com/cgychn/smart_clipboard/blob/master/doc_images/floatbubble.png?raw=true)
 
 点击浮窗可展示文件传输任务中心，同时文件传输中/失败/完成均会在浮窗中形成一系列提示。
 
@@ -46,10 +46,8 @@ smart_clipboard 是一款局域网内使用的智能剪切板软件，支持文�
 
 ##### 文件传输任务中心
 
-![ ](X:\cgy\自己开发的项目相关\smart_clipboard\tasklist.png)
+![ ](https://github.com/cgychn/smart_clipboard/blob/master/doc_images/tasklist.png?raw=true)
 
 展示文件传输历史以及进度（从软件运行开始）。
-
-
 
 
