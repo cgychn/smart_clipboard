@@ -254,11 +254,29 @@ export default {
                 }
               }
               this.clipboardList = data.data
+              // clean images that no in this.clipboardList
+              this.cleanTmpImages(server.id, this.clipboardList)
             } catch (e) {
               console.error(e)
             }
           }
           break;
+        }
+      }
+    },
+    cleanTmpImages (serverId, clipboardList) {
+      let imagePaths = new Set()
+      for (let item of clipboardList) {
+        if (item.type === "image") {
+          imagePaths.add(path.basename(item.content))
+        }
+      }
+      let fileNames = fs.readdirSync(this.userPublicPath + "\\.remote_images\\" + serverId)
+      for (let fileName of fileNames) {
+        if (!imagePaths.has(fileName)) {
+          // delete file
+          let fullPath = this.userPublicPath + "\\.remote_images\\" + serverId + "\\" + fileName
+          fs.unlinkSync(fullPath)
         }
       }
     },

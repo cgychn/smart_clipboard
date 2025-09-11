@@ -5,6 +5,16 @@ const http = require('http')
 const fs = require("fs")
 const path = require("path")
 import { ipcRenderer } from "electron";
+
+async function getPublicPath () {
+  try {
+    let res = await ipcRenderer.invoke("get-public-path")
+    return res;
+  } catch (error) {
+    return error
+  }
+}
+
 export default {
   name: 'HttpServer',
   components: {
@@ -18,10 +28,28 @@ export default {
         skipSameFile: true,
         hideDevice: false,
         hideClipboardContent: false,
-      }
+      },
+      userPublicPath: ""
     }
   },
   methods: {
+    cleanTmpImages (clipboardList) {
+      let imageNames = new Set()
+      for (let item of clipboardList) {
+        if (item.type === "image") {
+          imageNames.add(path.basename(item.content))
+        }
+      }
+      let tmpImagePath = path.join(this.userPublicPath, ".temp_images")
+      let fileNames = fs.readdirSync(tmpImagePath)
+      for (let fileName of fileNames) {
+        if (!imageNames.has(fileName)) {
+          // delete file
+          let fullPath = path.join(this.userPublicPath, ".temp_images", fileName)
+          fs.unlinkSync(fullPath)
+        }
+      }
+    },
     createHttpServer () {
       let that = this
       http.createServer(function (req, res) {
@@ -99,7 +127,7 @@ export default {
                 let fileNames = fs.readdirSync(filePath)
                 let result = []
                 for (let fileName of fileNames) {
-                  let fileFullPath = filePath + "\\" + fileName
+                  let fileFullPath = path.join(filePath, fileName)
                   let fileInfo = fs.statSync(fileFullPath);
                   result.push({
                     filePath: fileFullPath,
@@ -120,7 +148,8 @@ export default {
       }).listen(13238)
     }
   },
-  mounted () {
+  async mounted () {
+    this.userPublicPath = await getPublicPath()
     this.createHttpServer()
     let that = this
     ipcRenderer.on("append-clipboard", function (event, {filePaths, text, image}) {
@@ -145,6 +174,8 @@ export default {
       } else if (image) {
         that.clipboardList.push({content: image, type: "image", id: new Date().getTime()})
       }
+      // 清理本地图片缓存目录
+      that.cleanTmpImages(that.clipboardList)
     })
     ipcRenderer.on("set-setting", function (event, setting) {
       // 设置setting
