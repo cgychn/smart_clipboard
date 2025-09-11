@@ -213,7 +213,7 @@ async function createPasteAssistantWindow () {
     // if (!process.env.IS_TEST) win.webContents.openDevTools()
   } else {
     // Load the index.html when not in development
-    await win.loadURL('app://./index.html/#/pasteAssistant')
+    await win.loadURL('app://./index.html#/pasteAssistant')
   }
   win.once('ready-to-show', () => {
     console.log("ready-to-show")
@@ -256,7 +256,7 @@ async function createHttpServerWindow () {
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    win.loadURL('app://./index.html/#/httpServer')
+    win.loadURL('app://./index.html#/httpServer')
   }
 }
 
@@ -296,7 +296,7 @@ async function createFloatToolbar () {
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    await win.loadURL('app://./index.html/#/toolBar')
+    await win.loadURL('app://./index.html#/toolBar')
   }
   
   win.on("move", function () {
@@ -335,7 +335,7 @@ async function createDownloadProgress () {
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    win.loadURL('app://./index.html/#/downloadProgress')
+    win.loadURL('app://./index.html#/downloadProgress')
   }
 }
 
@@ -367,7 +367,7 @@ function createDonloadWorker (data) {
   } else {
     createProtocol('app')
     // Load the index.html when not in development
-    win.loadURL('app://./index.html/#/downloader')
+    win.loadURL('app://./index.html#/downloader')
   }
   win.once('ready-to-show', () => {
     win.webContents.send("start-download", {id, ...data})
@@ -508,46 +508,45 @@ app.on('ready', async () => {
     } catch (e) {
       console.error('Vue Devtools failed to install:', e.toString())
     }
-    // 监听键盘按下事件
-    uIOhook.on('keydown', event => {
-      // console.log('Key pressed:', event);
-      checkHotKey(event)
-    });
-    uIOhook.on('mousedown', event => {
-      // console.log(event)
-      let px = event.x
-      let py = event.y
-      // if (pasteAssistantWindow) {
-      //   console.log(pasteAssistantWindow.getBounds(), pasteAssistantWindow.isVisible())
-      // }
-      if (pasteAssistantWindow) {
-        let windowBounds = pasteAssistantWindow.getBounds()
-        let display = screen.getDisplayMatching(windowBounds)
-        let scaleFactor = display.scaleFactor
-        const physicalBounds = {
-          x: windowBounds.x * scaleFactor,
-          y: windowBounds.y * scaleFactor,
-          width: windowBounds.width * scaleFactor,
-          height: windowBounds.height * scaleFactor,
-        };
-        console.log(physicalBounds)
-        let clickWindow = (
-          px >= physicalBounds.x &&
-          px <= physicalBounds.x + physicalBounds.width &&
-          py >= physicalBounds.y &&
-          py <= physicalBounds.y + physicalBounds.height
-        )
-        if (!clickWindow && !dontClosePasteAssistantWindow) {
-          pasteAssistantWindow.hide()
-        }
-        if (dontClosePasteAssistantWindow) {
-          dontClosePasteAssistantWindow = false
-        }
-      }
-    })
-
-    uIOhook.start()
   }
+  // 监听键盘按下事件
+  uIOhook.on('keydown', event => {
+    // console.log('Key pressed:', event);
+    checkHotKey(event)
+  });
+  uIOhook.on('mousedown', event => {
+    // console.log(event)
+    let px = event.x
+    let py = event.y
+    // if (pasteAssistantWindow) {
+    //   console.log(pasteAssistantWindow.getBounds(), pasteAssistantWindow.isVisible())
+    // }
+    if (pasteAssistantWindow) {
+      let windowBounds = pasteAssistantWindow.getBounds()
+      let display = screen.getDisplayMatching(windowBounds)
+      let scaleFactor = display.scaleFactor
+      const physicalBounds = {
+        x: windowBounds.x * scaleFactor,
+        y: windowBounds.y * scaleFactor,
+        width: windowBounds.width * scaleFactor,
+        height: windowBounds.height * scaleFactor,
+      };
+      console.log(physicalBounds)
+      let clickWindow = (
+        px >= physicalBounds.x &&
+        px <= physicalBounds.x + physicalBounds.width &&
+        py >= physicalBounds.y &&
+        py <= physicalBounds.y + physicalBounds.height
+      )
+      if (!clickWindow && !dontClosePasteAssistantWindow) {
+        pasteAssistantWindow.hide()
+      }
+      if (dontClosePasteAssistantWindow) {
+        dontClosePasteAssistantWindow = false
+      }
+    }
+  })
+  uIOhook.start()
   console.log("ready")
   await createWindow()
   await createFloatToolbar()

@@ -21,10 +21,20 @@
                         </div>
                         <div class="setting-item-right">
                             <div style="width: 100%;">
-                                <el-checkbox v-model="setting.hideDevice">隐身使用</el-checkbox>
+                                <el-checkbox v-model="setting.hideDevice">
+                                    隐身使用
+                                    <el-tooltip class="item" effect="dark" content="该设备对其他设备不可见" placement="top-start">
+                                        <i class="el-icon-question" style="margin-left: 5px;"></i>
+                                    </el-tooltip>
+                                </el-checkbox>
                             </div>
                             <div style="margin-top: 10px;">
-                                <el-checkbox v-model="setting.hideClipboardContent">不分享剪切板内容</el-checkbox>
+                                <el-checkbox v-model="setting.hideClipboardContent">
+                                    不分享剪切板内容
+                                    <el-tooltip class="item" effect="dark" content="该设备的剪切板内容对其他设备不可见" placement="top-start">
+                                        <i class="el-icon-question" style="margin-left: 5px;"></i>
+                                    </el-tooltip>
+                                </el-checkbox>
                             </div>
                         </div>
                     </div>
@@ -42,6 +52,16 @@
                             </div>
                         </div>
                     </div>
+                    <!-- <div class="setting-item">
+                        <div class="setting-item-left">
+                            服务端口：
+                        </div>
+                        <div class="setting-item-right">
+                            <div>
+                                <el-input size="mini"></el-input>
+                            </div>
+                        </div>
+                    </div> -->
                 </div>
                 <div style="width: 100%; height: 80px; display: flex; justify-content: center; align-items: center;">
                     <el-button type="primary" size="medium" @click="saveSetting()">应用</el-button>
