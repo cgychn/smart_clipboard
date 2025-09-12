@@ -202,7 +202,12 @@ export default {
         // that.$forceUpdate()    
       })
     },
+    pathToCurrentPlatform (filePath) {
+        return path.normalize(filePath)
+    },
     getImageShowPath (serverPath, serverId, imagePath, clipboardId) {
+      // 将imagePath转为当前平台的path
+      imagePath = this.pathToCurrentPlatform(imagePath)
       let fileName = path.basename(imagePath)
       let showPath = path.join(this.userPublicPath, ".remote_images", serverId, fileName)
       if (!fs.existsSync(showPath)) {

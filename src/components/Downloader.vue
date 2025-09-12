@@ -113,6 +113,9 @@ export default {
             that.speedPS = that.copiedSize - that.lastCopiedSize
             that.lastCopiedSize = that.copiedSize
         }, 1000)
+    },
+    pathToCurrentPlatform (filePath) {
+        return path.normalize(filePath)
     }
   },
   mounted () {
@@ -129,7 +132,8 @@ export default {
         console.log(fileList, toDir, serverPath)
         let toDealFiles = []
         for (let file of fileList) {
-            console.log(path.basename(file.filePath))
+            // 将路径转为当前平台的路径
+            file.filePath = that.pathToCurrentPlatform(file.filePath)
             toDealFiles.push({
                 filePath: file.filePath,
                 isFile: file.isFile,

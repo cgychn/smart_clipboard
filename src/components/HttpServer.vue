@@ -50,6 +50,9 @@ export default {
         }
       }
     },
+    pathToCurrentPlatform (filePath) {
+        return path.normalize(filePath)
+    },
     createHttpServer () {
       let that = this
       http.createServer(function (req, res) {
@@ -73,7 +76,8 @@ export default {
                 const jsonData = JSON.parse(body);
                 // 在这里处理接收到的 JSON 数据
                 console.log('Received JSON data:', jsonData);
-                let filePath = jsonData.filePath
+                // path转为当前平台的path
+                let filePath = that.pathToCurrentPlatform(jsonData.filePath)
                 let stat = fs.statSync(filePath)
                 let fileName = path.basename(filePath)
                 // write file to response
@@ -122,7 +126,8 @@ export default {
                 const jsonData = JSON.parse(body);
                 // 在这里处理接收到的 JSON 数据
                 console.log('Received JSON data:', jsonData);
-                let filePath = jsonData.filePath
+                // path转为当前平台的path
+                let filePath = that.pathToCurrentPlatform(jsonData.filePath)
                 // list files in filePath
                 let fileNames = fs.readdirSync(filePath)
                 let result = []
