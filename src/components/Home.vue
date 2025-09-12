@@ -305,9 +305,9 @@ export default {
         const addrs = [];
         for (const name in interfaces) {
             for (const iface of interfaces[name]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                addrs.push(iface);
-            }
+                if (iface.family === 'IPv4' && !iface.internal) {
+                    addrs.push(iface);
+                }
             }
         }
         return addrs;

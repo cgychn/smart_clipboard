@@ -142,7 +142,7 @@ export default {
             let file = toDealFiles.shift()
             try {
                 // console.log(file)
-                let toFilePath = toDir + "\\" + file.realPath
+                let toFilePath = path.join(toDir, file.realPath)
                 // console.log(toFilePath)
                 if (file.isFile) {
                     // console.log("file:", file.filePath)
@@ -170,7 +170,7 @@ export default {
                                 filePath: f.filePath,
                                 isFile: f.isFile,
                                 fileSize: f.fileSize,
-                                realPath: file.realPath + "\\" + path.basename(f.filePath)
+                                realPath: path.join(file.realPath, path.basename(f.filePath))
                             })
                         }
                     }

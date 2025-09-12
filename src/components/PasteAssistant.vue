@@ -1,66 +1,79 @@
 <template>
     <div id="paste-assistant">
       <div class="container">
-        <div style="height: 50px;">
-          <el-tabs v-model="activeName" @tab-click="changeCB">
-            <el-tab-pane v-for="item in serverList" :key="item.id" :name="item.id">
-              <span slot="label">
-                {{ item.name }}
-                <el-tag type="success" size="mini" v-if="item.default" style="margin-left: 5px;" effect="dark">
-                  默认
-                </el-tag>
-              </span>
-            </el-tab-pane>
-          </el-tabs>
-        </div>
-        
-        <div class="cblist-empty-placeholder" v-if="clipboardList.length == 0">
-          该剪切板暂无数据
-        </div>
-        <div v-else style="width: 100%; height: calc(100% - 50px); overflow: auto;">
-          <div v-for="item in clipboardList" class="cb-item">
-            <div class="cb-item-left">
-              <div class="cb-item-icon" style="position: relative;">
-                <template v-if="item.type === 'filePaths'">
-                  <div class="file-count">
-                    {{ item.content.length }}
-                  </div>
-                  <img src="/img/files.png" style="height: 90%;"></img>
-                </template>
-                <template v-else-if="item.type === 'text'">
-                  <img src="/img/text.png" style="height: 90%;"></img>
-                </template>
-                <template v-else-if="item.type === 'image'">
-                  <img v-if="item.imageShowPath" :src="item.imageShowPath" style="height: 90%; width: 90%; object-fit: contain;"></img>
-                  <i class="el-icon-loading" style="font-size: 20px; color: white;" v-else></i>
-                </template>
-              </div>
-            </div>
-            <div class="cb-item-right">
-              <div class="cb-item-content" :style="checkExpand(item) ? 'width: 0px;' : ''">
-                <span v-if="item.type === 'filePaths'">
-                  <template v-if="item.content.length > 0">
-                    {{ item.content[0].filePath }}
+        <template v-if="serverList.length <= 0">
+          <div class="cblist-empty-placeholder" style="height: 100%;" v-if="clipboardList.length == 0">
+            暂无可用剪切板
+          </div>
+        </template>
+        <template v-if="serverList.length > 0">
+          <div style="height: 50px;">
+            <el-tabs v-model="activeName" @tab-click="changeCB">
+              <el-tab-pane v-for="item in serverList" :key="item.id" :name="item.id">
+                <span slot="label">
+                  {{ item.name }}
+                  <el-tag type="success" size="mini" v-if="item.default" style="margin-left: 5px;" effect="dark">
+                    默认
+                  </el-tag>
+                  <el-tag type="success" size="mini" v-if="item.online" style="margin-left: 5px;" effect="dark">
+                    在线
+                  </el-tag>
+                  <el-tag type="info" size="mini" v-else style="margin-left: 5px;" effect="dark">
+                    离线
+                  </el-tag>
+                </span>
+              </el-tab-pane>
+            </el-tabs>
+          </div>
+          
+          <div class="cblist-empty-placeholder" v-if="clipboardList.length == 0">
+            该剪切板暂无数据
+          </div>
+          <div v-else style="width: 100%; height: calc(100% - 50px); overflow: auto;">
+            <div v-for="item in clipboardList" class="cb-item">
+              <div class="cb-item-left">
+                <div class="cb-item-icon" style="position: relative;">
+                  <template v-if="item.type === 'filePaths'">
+                    <div class="file-count">
+                      {{ item.content.length }}
+                    </div>
+                    <img src="/img/files.png" style="height: 90%;"></img>
                   </template>
-                </span>
-                <span v-else-if="item.type === 'text'">
-                  {{ item.content }}
-                </span>
-                <span v-else-if="item.type === 'image'">
-                  图片
-                </span>
+                  <template v-else-if="item.type === 'text'">
+                    <img src="/img/text.png" style="height: 90%;"></img>
+                  </template>
+                  <template v-else-if="item.type === 'image'">
+                    <img v-if="item.imageShowPath" :src="item.imageShowPath" style="height: 90%; width: 90%; object-fit: contain;"></img>
+                    <i class="el-icon-loading" style="font-size: 20px; color: white;" v-else></i>
+                  </template>
+                </div>
               </div>
-              <div class="cb-item-content-op" :style="checkExpand(item) ? 'width: 100%;' : ''">
-                <el-button size="mini" type="text" @click="showDetail(item)">查看详情</el-button>
-                <el-button v-if="item.type === 'filePaths'" size="mini" type="text" @click="transferToLocal(item)">拷至本机</el-button>
-                <el-button v-else size="mini" type="text" @click="copyToClipboard(item)">复制到剪贴板</el-button>
+              <div class="cb-item-right">
+                <div class="cb-item-content" :style="checkExpand(item) ? 'width: 0px;' : ''">
+                  <span v-if="item.type === 'filePaths'">
+                    <template v-if="item.content.length > 0">
+                      {{ item.content[0].filePath }}
+                    </template>
+                  </span>
+                  <span v-else-if="item.type === 'text'">
+                    {{ item.content }}
+                  </span>
+                  <span v-else-if="item.type === 'image'">
+                    图片
+                  </span>
+                </div>
+                <div class="cb-item-content-op" :style="checkExpand(item) ? 'width: 100%;' : ''">
+                  <el-button size="mini" type="text" @click="showDetail(item)">查看详情</el-button>
+                  <el-button v-if="item.type === 'filePaths'" size="mini" type="text" @click="transferToLocal(item)">拷至本机</el-button>
+                  <el-button v-else size="mini" type="text" @click="copyToClipboard(item)">复制到剪贴板</el-button>
+                </div>
               </div>
-            </div>
-            <div class="cb-item-operation" @click="expandOp(item)">
-              <i :class="checkExpand(item) ? 'el-icon-caret-right' : 'el-icon-caret-left'"></i>
+              <div class="cb-item-operation" @click="expandOp(item)">
+                <i :class="checkExpand(item) ? 'el-icon-caret-right' : 'el-icon-caret-left'"></i>
+              </div>
             </div>
           </div>
-        </div>
+        </template>
       </div>
       <el-dialog :visible.sync="detailDialogVisible" width="90%">
         <div slot="title">
@@ -76,7 +89,7 @@
             </div>
           </div>
         </div>
-        <div v-else-if="detail.imageDetail" style="width: 100%; max-height: 200px; overflow: auto; color: white; display: flex; justify-content: center; flex-wrap: wrap;">
+        <div v-else-if="detail.imageDetail" style="width: 100%; max-height: 200px; overflow: auto; color: white; display: flex; justify-content: center; flex-wrap: wrap;" id="image-detail-container">
           <img :src="detail.imageDetail" style="width: 100%; height: 100%; object-fit: contain;"></img>
           <el-button type="text" style="margin-top: 5px;" @click="showFile(detail.imageDetail)">查看大图</el-button>
         </div>
@@ -156,10 +169,11 @@ export default {
       let that = this
       return new Promise(async (resolve, reject) => {
         // 创建根目录
-        fs.mkdirSync(this.userPublicPath + "\\.remote_images\\" + serverId, {recursive: true})
+        let remoteDeviceRootPath = path.join(this.userPublicPath, ".remote_images", serverId)
+        fs.mkdirSync(remoteDeviceRootPath, {recursive: true})
         // 创建文件
         let fileName = path.basename(imagePath)
-        let destFilePath = this.userPublicPath + "\\.remote_images\\" + serverId + "\\" + fileName
+        let destFilePath = path.join(remoteDeviceRootPath, fileName)
         fs.writeFileSync(destFilePath, "")
         // 将文件下载到该位置
         let response = await fetch(`${serverPath}/copyFile`, {
@@ -190,7 +204,7 @@ export default {
     },
     getImageShowPath (serverPath, serverId, imagePath, clipboardId) {
       let fileName = path.basename(imagePath)
-      let showPath = this.userPublicPath + "\\.remote_images\\" + serverId + "\\" + fileName
+      let showPath = path.join(this.userPublicPath, ".remote_images", serverId, fileName)
       if (!fs.existsSync(showPath)) {
         // 开始下载文件
         if (!this.loadingImages.has(serverId + " " + clipboardId)) {
@@ -271,11 +285,12 @@ export default {
           imagePaths.add(path.basename(item.content))
         }
       }
-      let fileNames = fs.readdirSync(this.userPublicPath + "\\.remote_images\\" + serverId)
+      let remoteDeviceRootPath = path.join(this.userPublicPath, ".remote_images", serverId)
+      let fileNames = fs.readdirSync(remoteDeviceRootPath)
       for (let fileName of fileNames) {
         if (!imagePaths.has(fileName)) {
           // delete file
-          let fullPath = this.userPublicPath + "\\.remote_images\\" + serverId + "\\" + fileName
+          let fullPath = path.join(remoteDeviceRootPath, fileName)
           fs.unlinkSync(fullPath)
         }
       }
@@ -376,6 +391,17 @@ export default {
 .el-message {
   width: 80% !important;
   min-width: 0 !important;
+}
+#image-detail-container {
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  /*定义滑块 内阴影+圆角*/
+  &::-webkit-scrollbar-thumb {
+    width: 4px;
+    border-radius: 4px;
+    background-color: #de7d7d;
+  }
 }
 #paste-assistant {
     width: 100%;
