@@ -87,12 +87,12 @@
                 可用剪切板
                 <div class="service-list-container" v-if="availableCBList.length > 0">
                     <div class="cb-list-item" :key="device.id" v-for="device in availableCBList">
-                        <div class="top">
-                            <!-- <div :style="device.online ? 'background-color: green;' : 'background-color: red;'" class="status-point"></div> -->
+                        <div :class="`top${device.online ? '' : ' offline'}`">
+                            <img :src="`/img/${device.platform}.png`" onerror="this.onerror=null; this.src='/img/unknow.png';" style="height: 75%;" />
                             <template v-if="device.id === deviceId">
-                                <el-tag type="success" size="mini" effect="dark">本机</el-tag>
+                                <span class="current-device" type="success">本机</span>
                             </template>
-                            <Icon v-else :type="'net'" :color="device.online ? 'green' : 'grey'" style="width: 20px; height: 20px;"></Icon>
+                            <!-- <Icon v-else :type="'net'" :color="device.online ? 'green' : 'grey'" style="width: 20px; height: 20px;"></Icon> -->
                         </div>
                         <div class="center">
                             <div style="width: 100%; height: 60%; line-height: 2.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px;">
@@ -103,7 +103,9 @@
                             </div>
                         </div>
                         <div class="end">
-                            <el-checkbox v-model="device.default" @change="(val) => { defaultChanged(device, val) }"></el-checkbox>
+                            <el-tooltip class="item" effect="dark" content="默认展示该设备内容" placement="top-start">
+                                <el-checkbox v-model="device.default" @change="(val) => { defaultChanged(device, val) }"></el-checkbox>
+                            </el-tooltip>
                         </div>
                     </div>
                 </div>
@@ -155,6 +157,12 @@ async function getDeviceId () {
     return data
 }
 
+async function getPlatform () {
+    const data = await ipcRenderer.invoke('get-platform')
+    console.log(data)
+    return data
+}
+
 export default {
   name: 'Home',
   components: {
@@ -175,7 +183,8 @@ export default {
         },
         savedSetting: {
 
-        }
+        },
+        platform: ""
     }
   },
   methods: {
@@ -333,7 +342,8 @@ export default {
                     if (!that.savedSetting.hideDevice) {
                         const message = Buffer.from(JSON.stringify({
                             name: this.localName,
-                            id: this.deviceId
+                            id: this.deviceId,
+                            platform: this.platform
                         }));
                         socket.send(message, 0, message.length, PORT, broadcaseAddr, (err) => {
                             if (err) console.error(err);
@@ -355,6 +365,7 @@ export default {
                     cb.online = true
                     cb.ipAddress = rinfo.address
                     cb.lastHeartbeatTime = new Date().getTime()
+                    cb.platform = msgJSON.platform
                     added = true
                 }
             }
@@ -371,6 +382,7 @@ export default {
                     console.log(e)
                 }
             }
+            that.$forceUpdate()
             console.log(that.availableCBList)
         });
     },
@@ -390,6 +402,7 @@ export default {
   async mounted () {
     let hostname = await getConfig().localName
     this.deviceId = await getDeviceId()
+    this.platform = await getPlatform()
     if (!hostname) {
         this.localName = os.hostname()
         // 保存到config
@@ -509,11 +522,26 @@ export default {
                         display: flex;
                         justify-content: center;
                         align-items: center;
+                        position: relative;
                         .status-point {
                             width: 15px; 
                             height: 15px; 
                             border-radius: 50%; 
                         }
+                    }
+                    .offline {
+                        filter: grayscale(100%);
+                    }
+                    .current-device {
+                        position: absolute; color: white; 
+                        padding-top: 2px; padding-bottom: 2px; 
+                        padding-right: 5px; padding-left: 5px; 
+                        font-size: 8px; 
+                        background-color: rgb(0, 176, 0);
+                        display: block;
+                        border-radius: 4px;
+                        top: 5px;
+                        left: 5px;
                     }
                     .center {
                         width: calc(100% - 60px - 60px);

@@ -14,15 +14,26 @@ let appTray, mainWindow, pasteAssistantWindow, httpServerWindow, downloadProgres
 // const ioHook = require('iohook');
 import { uIOhook, UiohookKey } from 'uiohook-napi'
 import { Sqlite } from "@/js/sqlite";
+
+const platform = process.platform
+const isMac = platform === 'darwin';
+const isLinux = platform === 'linux'
+
 let userPublicPath = "C:\\Users\\Public\\.smart_clipboard";
-let logoPath = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + "\\logo.png" : path.dirname(app.getPath("exe")) + "\\logo.png"
-let configPath = userPublicPath + "\\config.json"
-let configPathTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + "\\config.json.template" : path.dirname(app.getPath("exe")) + "\\config.json.template"
-let dbTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + "\\local.db" : path.dirname(app.getPath("exe")) + "\\local.db"
-let deviceHashFilePath = userPublicPath + "\\device.id"
-let localDB = userPublicPath + "\\local.db"
-let tempImageFileRoot = userPublicPath + "\\.temp_images";
-const isMac = process.platform === 'darwin';
+if (isMac || isLinux) {
+  // userPublicPath 设置为用户主目录，否则使用windows的public目录
+  userPublicPath = app.getPath("home") + path.sep + ".smart_clipboard"
+}
+let logoPath = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + path.sep + "logo.png" : path.dirname(app.getPath("exe")) + path.sep + "logo.png"
+let configPath = userPublicPath + path.sep + "config.json"
+let configPathTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + path.sep + "config.json.template" : path.dirname(app.getPath("exe")) + path.sep + "config.json.template"
+let dbTemplate = process.env.WEBPACK_DEV_SERVER_URL ?  path.dirname(__dirname) + path.sep + "local.db" : path.dirname(app.getPath("exe")) + path.sep + "local.db"
+let deviceHashFilePath = userPublicPath + path.sep + "device.id"
+let localDB = userPublicPath + path.sep + "local.db"
+let tempImageFileRoot = userPublicPath + path.sep + ".temp_images";
+
+
+
 let dontClosePasteAssistantWindow = false
 let setting = {
   skipSameFile: true,
@@ -453,7 +464,7 @@ async function checkHotKey (key) {
           // write image to temp file, and send temp file to http server
           // console.log(image.toDataURL())
           console.log("write start")
-          tempPath = tempImageFileRoot + "\\" + new Date().getTime() + ".png"
+          tempPath = tempImageFileRoot + path.sep + new Date().getTime() + ".png"
           fs.writeFileSync(tempPath, image.toPNG());
           console.log("write done")
         }
@@ -606,6 +617,10 @@ ipcMain.handle('get-config', () => {
 
 ipcMain.handle('get-deviceid', () => {
   return deviceId
+})
+
+ipcMain.handle('get-platform', () => {
+  return platform
 })
 
 ipcMain.handle('get-setting', () => {
