@@ -598,8 +598,8 @@ ipcMain.on("hide-download-progress-win", () => {
 })
 
 // 设置hostname
-ipcMain.on("set-host-name", (event, hostName) => {
-  config.hostName = hostName
+ipcMain.on("set-host-name", (event, {hostname, deviceId}) => {
+  config.hostName = hostname
   fs.writeFileSync(configPath, JSON.stringify(config));
 })
 

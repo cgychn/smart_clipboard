@@ -275,6 +275,12 @@ export default {
         try {
             if (value) {
                 await dbRunPrepare(`update cb_server set \`default\` = CASE id WHEN '${device.id}' THEN '1' ELSE '0' END`)
+                // 取消其他默认
+                for (let cb of this.availableCBList) {
+                    if (device.id != cb.id) {
+                        cb.default = false
+                    }
+                }
             } else {
                 await dbRunPrepare(`update cb_server set \`default\` = 0`)
             }
@@ -394,22 +400,39 @@ export default {
     showSetting () {
         this.settingShow = true
     },
-    saveHostname (notice) {
-        ipcRenderer.send("set-host-name", this.localName)
+    async saveHostname (notice) {
+        let that = this
+        ipcRenderer.send("set-host-name", {hostname: that.localName, deviceId: that.deviceId})
         if (notice) {
             this.$message.success("修改成功！")
+        }
+        let sql = "update cb_server set `name` = ? where id = ?"
+        try {
+            await dbRunPrepare(sql, that.localName, that.deviceId)
+            // 更新 availableCBList
+            for (let cb of that.availableCBList) {
+                if (cb.id === that.deviceId) {
+                    cb.name = that.localName
+                    that.$forceUpdate()
+                    break;
+                }
+            }
+        } catch (e) {
+            console.log(e)
         }
     },
   },
   async mounted () {
-    let hostname = await getConfig().localName
+    let hostname = (await getConfig()).hostName
     this.deviceId = await getDeviceId()
     this.platform = await getPlatform()
     if (!hostname) {
         this.localName = os.hostname()
-        // 保存到config
-        this.saveHostname()
+    } else {
+        this.localName = hostname
     }
+    // 保存到config
+    this.saveHostname()
     await this.loadSetting()
     // 开始广播
     this.loadCBListFromDB()
