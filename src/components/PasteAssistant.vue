@@ -277,6 +277,7 @@ export default {
               this.cleanTmpImages(server.id, this.clipboardList)
             } catch (e) {
               console.error(e)
+              this.clipboardList = []
             }
           }
           break;
@@ -377,8 +378,11 @@ export default {
           that.activeName = cb.id
           break;
         }
-        that.fetchCurrentActivateCbList()
       }
+      if (!that.activeName && that.serverList.length > 0) {
+        that.activeName = that.serverList[0].id
+      }
+      that.fetchCurrentActivateCbList()
       that.$forceUpdate()
     })
     ipcRenderer.on("focus", function (event, data) {

@@ -329,30 +329,32 @@ export default {
     },
     broadcast () {
         clearInterval()
-        let interfaces = this.getLocalIPv4();
+        // let interfaces = this.getLocalIPv4();
         let that = this
-
-        // 对每个网卡都开启广播
-        for (let intef of interfaces) {
-            let broadcaseAddr = this.getBroadcastAddress(intef.address, intef.netmask)
-            socket.bind(PORT, intef.address, () => {
-                socket.setBroadcast(true); // 开启广播权限
-                setInterval(() => {
-                    // 如果隐身模式则跳过广播
-                    if (!that.savedSetting.hideDevice) {
-                        const message = Buffer.from(JSON.stringify({
-                            name: this.localName,
-                            id: this.deviceId,
-                            platform: this.platform
-                        }));
-                        socket.send(message, 0, message.length, PORT, broadcaseAddr, (err) => {
-                            if (err) console.error(err);
-                            else console.log('广播消息已发送');
-                        });
-                    }
-                }, 2000);
-            });
-        }
+        // console.log(interfaces)
+        // // 对每个网卡都开启广播
+        // for (let intef of interfaces) {
+        //     let broadcaseAddr = this.getBroadcastAddress(intef.address, intef.netmask)
+            
+        //     break;
+        // }
+        socket.bind(PORT, "0.0.0.0", () => {
+            socket.setBroadcast(true); // 开启广播权限
+            setInterval(() => {
+                // 如果隐身模式则跳过广播
+                if (!that.savedSetting.hideDevice) {
+                    const message = Buffer.from(JSON.stringify({
+                        name: this.localName,
+                        id: this.deviceId,
+                        platform: this.platform
+                    }));
+                    socket.send(message, 0, message.length, PORT, "255.255.255.255", (err) => {
+                        if (err) console.error(err);
+                        else console.log('广播消息已发送');
+                    });
+                }
+            }, 2000);
+        });
     },
     listenBroadcast () {
         let that = this;
