@@ -10,7 +10,8 @@
           <div style="height: 50px;">
             <el-tabs v-model="activeName" @tab-click="changeCB">
               <el-tab-pane v-for="item in serverList" :key="item.id" :name="item.id">
-                <span slot="label">
+                <span slot="label" style="display: flex; align-items: center;">
+                  <img style="height: 15px; margin-right: 5px;" :src="`/img/${item.platform}.png`" onerror="this.onerror=null; this.src='/img/unknow.png';" />
                   {{ item.name }}
                   <el-tag type="success" size="mini" v-if="item.default" style="margin-left: 5px;" effect="dark">
                     默认
