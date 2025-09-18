@@ -109,7 +109,6 @@ export default {
         justify-content: center;
         align-items: center;
         position: relative;
-        border-radius: 3px;
         background-color: rgb(67, 67, 67);
         color: rgb(178, 178, 178);
     }

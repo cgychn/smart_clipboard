@@ -2,7 +2,7 @@
 
 <script>
 const http = require('http')
-const fs = require("fs")
+const fs = require("original-fs")
 const path = require("path")
 import { ipcRenderer } from "electron";
 
@@ -137,7 +137,7 @@ export default {
                   result.push({
                     filePath: fileFullPath,
                     isFile: fileInfo.isFile(),
-                    fileSize: fs.size
+                    fileSize: fileInfo.size
                   })
                 }
                 // 返回响应

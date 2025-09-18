@@ -275,13 +275,13 @@ async function createFloatToolbar () {
   let {width, height} = screen.getPrimaryDisplay().workAreaSize
   const win = new BrowserWindow({
     show: false,
-    transparent: false,
     fullscreenable: false,
     skipTaskbar: true,
     icon: logoPath,
     maximizable: false,
     minimizable: false,
     alwaysOnTop: true,
+    type: "toolbar",
     resizable: false,
     height: 50,
     frame: false,

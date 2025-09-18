@@ -2,7 +2,7 @@
 
 <script>
 const http = require('http')
-const fs = require("fs")
+const fs = require("original-fs")
 const path = require("path")
 import { ipcRenderer } from "electron";
 import { url } from "inspector";

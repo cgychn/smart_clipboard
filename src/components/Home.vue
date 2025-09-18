@@ -294,8 +294,8 @@ export default {
     },
     syncDBListToMainProgress() {
         let that = this;
-        let currentTime = new Date().getTime();
         setInterval(() => {
+            let currentTime = new Date().getTime();
             for (let cb of that.availableCBList) {
                 if (cb.lastHeartbeatTime) {
                     let duringTime = currentTime - cb.lastHeartbeatTime
