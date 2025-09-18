@@ -292,12 +292,14 @@ export default {
         }
       }
       let remoteDeviceRootPath = path.join(this.userPublicPath, ".remote_images", serverId)
-      let fileNames = fs.readdirSync(remoteDeviceRootPath)
-      for (let fileName of fileNames) {
-        if (!imagePaths.has(fileName)) {
-          // delete file
-          let fullPath = path.join(remoteDeviceRootPath, fileName)
-          fs.unlinkSync(fullPath)
+      if (fs.existsSync(remoteDeviceRootPath)) {
+        let fileNames = fs.readdirSync(remoteDeviceRootPath)
+        for (let fileName of fileNames) {
+          if (!imagePaths.has(fileName)) {
+            // delete file
+            let fullPath = path.join(remoteDeviceRootPath, fileName)
+            fs.unlinkSync(fullPath)
+          }
         }
       }
     },
