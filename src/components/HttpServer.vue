@@ -160,7 +160,7 @@ export default {
     ipcRenderer.on("append-clipboard", function (event, {filePaths, text, image}) {
       // 最多保持5个历史
       console.log({filePaths, text, image})
-      if (that.clipboardList.length >= 5 && (text || (filePaths && filePaths.length > 0))) {
+      if (that.clipboardList.length >= 5 && (text || (filePaths && filePaths.length > 0) || image)) {
         that.clipboardList.shift()
       }
       if (filePaths && filePaths.length > 0) {
